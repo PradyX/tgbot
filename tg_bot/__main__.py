@@ -1,4 +1,5 @@
 import datetime
+from functools import wraps
 import importlib
 import re
 from typing import Optional, List
@@ -10,7 +11,7 @@ from telegram.ext import CommandHandler, Filters, MessageHandler, CallbackQueryH
 from telegram.ext.dispatcher import run_async, DispatcherHandlerStop, Dispatcher
 from telegram.utils.helpers import escape_markdown
 
-from tg_bot import dispatcher, updater, TOKEN, WEBHOOK, OWNER_ID, DONATION_LINK, CERT_PATH, PORT, URL, LOGGER, \
+from tg_bot import dispatcher, updater, TOKEN, WEBHOOK, SUDO_USERS, OWNER_ID, DONATION_LINK, CERT_PATH, PORT, URL, LOGGER, \
     ALLOW_EXCL
 # needed to dynamically load modules
 # NOTE: Module order is not guaranteed, specify that in the config file!
@@ -108,6 +109,18 @@ for module_name in ALL_MODULES:
     if hasattr(imported_module, "__user_settings__"):
         USER_SETTINGS[imported_module.__mod_name__.lower()] = imported_module
 
+def restricted(func):
+    """Restrict usage of func to allowed users only and replies if necessary"""
+    @wraps(func)
+    def wrapped(bot, update, *args, **kwargs):
+        user_id = update.effective_user.id
+        chat_type = update.effective_chat.type
+        if chat_type == "private" and user_id not in SUDO_USERS:
+            print("WARNING: Unauthorized access denied for {}.".format(user_id))
+            update.message.reply_text('You are not allowed to PM me, ask BOT OWNER for access.')
+            return  # quit function
+        return func(bot, update, *args, **kwargs)
+    return wrapped
 
 # do not async
 def send_help(chat_id, text, keyboard=None):
@@ -128,6 +141,7 @@ def test(bot: Bot, update: Update):
 
 
 @run_async
+@restricted
 def start(bot: Bot, update: Update, args: List[str]):
     if update.effective_chat.type == "private":
         if len(args) >= 1:
