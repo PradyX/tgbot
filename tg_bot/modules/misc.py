@@ -80,7 +80,11 @@ SLAP_TEMPLATES = (
     "{user1} pins {user2} down and repeatedly {hits} them with a {item}.",
     "{user1} grabs up a {item} and {hits} {user2} with it.",
     "{user1} ties {user2} to a chair and {throws} a {item} at them.",
-    "{user1} gave a friendly push to help {user2} learn to swim in lava."
+    "{user1} gave a friendly push to help {user2} learn to swim in lava.",
+    "{user1} hits {user2} with a donut.",
+	"{user1} pats {user2} with a bat.",
+	"{user1} stabs {user2} with a {item}.",
+	"{user1} pokes {user2} with a {item}.",
 )
 
 ITEMS = (
@@ -128,6 +132,8 @@ HIT = (
     "slaps",
     "smacks",
     "bashes",
+    "pats",
+    "smashes",
 )
 
 GMAPS_LOC = "https://maps.googleapis.com/maps/api/geocode/json"
