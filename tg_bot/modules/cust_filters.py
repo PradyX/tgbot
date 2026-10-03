@@ -3,7 +3,7 @@ from typing import Optional
 
 import telegram
 from telegram import InlineKeyboardMarkup, Message, Chat
-from telegram.constants import ParseMode
+from telegram.constants import ParseMode, MessageLimit
 from telegram import Update, Bot
 from telegram.error import BadRequest
 from telegram.ext import CommandHandler, MessageHandler, ApplicationHandlerStop
@@ -34,7 +34,7 @@ async def list_handlers(update, context):
     filter_list = BASIC_FILTER_STRING
     for keyword in all_handlers:
         entry = " - {}\n".format(escape_markdown(keyword))
-        if len(entry) + len(filter_list) > telegram.MAX_MESSAGE_LENGTH:
+        if len(entry) + len(filter_list) > MessageLimit.MAX_TEXT_LENGTH:
             await update.effective_message.reply_text(filter_list, parse_mode=telegram.ParseMode.MARKDOWN)
             filter_list = entry
         else:

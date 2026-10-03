@@ -2,11 +2,10 @@ import html
 import re
 
 from feedparser import parse
-from telegram import constants
-from telegram.constants import ParseMode
+from telegram.constants import ParseMode, MessageLimit
 from telegram.ext import CommandHandler
 
-from tg_bot import dispatcher, updater
+from tg_bot import dispatcher
 from tg_bot.modules.helper_funcs.chat_status import user_admin
 from tg_bot.modules.sql import rss_sql as sql
 
@@ -68,7 +67,7 @@ async def list_urls(update, context):
     # check if the length of the message is too long to be posted in 1 chat bubble
     if len(final_content) == 0:
         await bot.send_message(chat_id=tg_chat_id, text="This chat is not subscribed to any links")
-    elif len(final_content) <= constants.MAX_MESSAGE_LENGTH:
+    elif len(final_content) <= MessageLimit.MAX_TEXT_LENGTH:
         await bot.send_message(chat_id=tg_chat_id, text="This chat is subscribed to the following links:\n" + final_content)
     else:
         await bot.send_message(chat_id=tg_chat_id, parse_mode=ParseMode.HTML,
@@ -137,7 +136,8 @@ async def remove_url(update, context):
         await update.effective_message.reply_text("URL missing")
 
 
-async def rss_update(bot, job):
+async def rss_update(context):
+    bot = context.bot
     user_data = sql.get_all()
 
     # this loop checks for every row in the DB
@@ -173,7 +173,7 @@ async def rss_update(bot, job):
             for link, title in zip(reversed(new_entry_links), reversed(new_entry_titles)):
                 final_message = "<b>{}</b>\n\n{}".format(html.escape(title), html.escape(link))
 
-                if len(final_message) <= constants.MAX_MESSAGE_LENGTH:
+                if len(final_message) <= MessageLimit.MAX_TEXT_LENGTH:
                     await bot.send_message(chat_id=tg_chat_id, text=final_message, parse_mode=ParseMode.HTML)
                 else:
                     await bot.send_message(chat_id=tg_chat_id, text="<b>Warning:</b> The message is too long to be sent",
@@ -182,7 +182,7 @@ async def rss_update(bot, job):
             for link, title in zip(reversed(new_entry_links[-5:]), reversed(new_entry_titles[-5:])):
                 final_message = "<b>{}</b>\n\n{}".format(html.escape(title), html.escape(link))
 
-                if len(final_message) <= constants.MAX_MESSAGE_LENGTH:
+                if len(final_message) <= MessageLimit.MAX_TEXT_LENGTH:
                     await bot.send_message(chat_id=tg_chat_id, text=final_message, parse_mode=ParseMode.HTML)
                 else:
                     await bot.send_message(chat_id=tg_chat_id, text="<b>Warning:</b> The message is too long to be sent",
@@ -193,7 +193,7 @@ async def rss_update(bot, job):
                              .format(len(new_entry_links) - 5))
 
 
-def rss_set(bot, job):
+async def rss_set(context):
     user_data = sql.get_all()
 
     # this loop checks for every row in the DB
@@ -234,7 +234,7 @@ NOTE: In groups, only admins can add/remove RSS links to the group's subscriptio
 
 __mod_name__ = "RSS Feed"
 
-job = updater.job_queue
+job = dispatcher.job_queue
 
 job_rss_set = job.run_once(rss_set, 5)
 job_rss_update = job.run_repeating(rss_update, interval=60, first=60)

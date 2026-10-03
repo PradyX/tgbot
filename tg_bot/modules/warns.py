@@ -4,7 +4,7 @@ from typing import Optional, List
 
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, User, CallbackQuery
-from telegram.constants import ParseMode
+from telegram.constants import ParseMode, MessageLimit
 from telegram import Message, Chat, Update, Bot
 from telegram.error import BadRequest
 from telegram.ext import CommandHandler, ApplicationHandlerStop, MessageHandler, filters, CallbackQueryHandler
@@ -286,7 +286,7 @@ async def list_warn_filters(update, context):
     filter_list = CURRENT_WARNING_FILTER_STRING
     for keyword in all_handlers:
         entry = " - {}\n".format(html.escape(keyword))
-        if len(entry) + len(filter_list) > telegram.MAX_MESSAGE_LENGTH:
+        if len(entry) + len(filter_list) > MessageLimit.MAX_TEXT_LENGTH:
             await update.effective_message.reply_text(filter_list, parse_mode=ParseMode.HTML)
             filter_list = entry
         else:

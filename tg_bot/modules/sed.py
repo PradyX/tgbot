@@ -2,6 +2,7 @@ import re
 import sre_constants
 
 import telegram
+from telegram.constants import MessageLimit
 from telegram import Update, Bot
 
 from tg_bot import dispatcher, LOGGER
@@ -90,7 +91,7 @@ async def sed(update, context):
             return
 
         # empty string errors -_-
-        if len(text) >= telegram.MAX_MESSAGE_LENGTH:
+        if len(text) >= MessageLimit.MAX_TEXT_LENGTH:
             await update.effective_message.reply_text("The result of the sed command was too long for \
                                                  telegram!")
         elif text:
@@ -106,7 +107,7 @@ larger than {}.
 *Reminder:* Sed uses some special characters to make matching easier, such as these: `+*.?\\`
 If you want to use these characters, make sure you escape them!
 eg: \\?.
-""".format(telegram.MAX_MESSAGE_LENGTH)
+""".format(MessageLimit.MAX_TEXT_LENGTH)
 
 __mod_name__ = "Sed/Regex"
 
