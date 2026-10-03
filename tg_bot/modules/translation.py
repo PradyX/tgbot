@@ -1,7 +1,4 @@
-import json
-from pprint import pprint
-
-import requests
+import httpx
 from telegram import Update, Bot
 from telegram.ext import CommandHandler
 
@@ -13,7 +10,6 @@ URL = "http://services.gingersoftware.com/Ginger/correct/json/GingerTheText"
 
 
 async def translate(update, context):
-    bot = context.bot
     if update.effective_message.reply_to_message:
         msg = update.effective_message.reply_to_message
 
@@ -24,11 +20,16 @@ async def translate(update, context):
             text=msg.text
         )
 
-        res = requests.get(URL, params=params)
-        # print(res)
-        # print(res.text)
-        pprint(json.loads(res.text))
-        changes = json.loads(res.text).get('LightGingerTheTextResult')
+        try:
+            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+                res = await client.get(URL, params=params)
+                data = res.json()
+        except (ValueError, httpx.HTTPError):
+            await update.effective_message.reply_text(
+                "The translation service didn't respond - try again later.")
+            return
+
+        changes = data.get('LightGingerTheTextResult') or []
         curr_string = ""
 
         prev_end = 0
@@ -44,7 +45,6 @@ async def translate(update, context):
                 prev_end = end
 
         curr_string += msg.text[prev_end:]
-        print(curr_string)
         await update.effective_message.reply_text(curr_string)
 
 

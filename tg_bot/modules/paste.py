@@ -1,6 +1,6 @@
 from typing import Optional
 
-import requests
+import httpx
 from telegram import Message
 from telegram.constants import MessageLimit
 from telegram.ext import CommandHandler
@@ -27,14 +27,14 @@ async def paste(update, context):
         return
 
     try:
-        res = requests.post(DPASTE_API,
-                            data={"content": text, "syntax": "plain", "expiry_days": "7"},
-                            timeout=10)
-    except requests.RequestException:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            res = await client.post(DPASTE_API,
+                                    data={"content": text, "syntax": "plain", "expiry_days": "7"})
+    except httpx.HTTPError:
         await message.reply_text("The paste service didn't respond - try again later.")
         return
 
-    if res.ok:
+    if res.is_success:
         # API returns the url as a JSON string, e.g. "https://dpaste.org/13LTV"
         paste_url = res.text.strip().strip('"')
         await message.reply_text("Pasted to: {}".format(paste_url))
@@ -61,12 +61,13 @@ async def get_paste_content(update, context):
         paste_url += ".txt"
 
     try:
-        res = requests.get(paste_url, timeout=10)
-    except requests.RequestException:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            res = await client.get(paste_url)
+    except httpx.HTTPError:
         await message.reply_text("Failed to fetch that paste - try again later.")
         return
 
-    if not res.ok or not res.text:
+    if not res.is_success or not res.text:
         await message.reply_text("Couldn't find that paste.")
         return
 

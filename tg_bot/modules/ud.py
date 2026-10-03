@@ -5,15 +5,19 @@ from telegram.ext import ContextTypes
 from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot import dispatcher
 
-from requests import get
+import httpx
+
+UD_API = "https://api.urbandictionary.com/v0/define"
 
 
 async def ud(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.effective_message
     text = message.text[len('/ud '):]
     try:
-        results = get(f'http://api.urbandictionary.com/v0/define?term={text}', timeout=10).json()
-    except ValueError:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+            res = await client.get(UD_API, params={"term": text})
+            results = res.json()
+    except (ValueError, httpx.HTTPError):
         await message.reply_text("Urban dictionary didn't respond - try again later.")
         return
 

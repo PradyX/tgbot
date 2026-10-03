@@ -1,13 +1,29 @@
 import html
 import re
 
-from feedparser import parse
+import feedparser
+import httpx
 from telegram.constants import ParseMode, MessageLimit
 from telegram.ext import CommandHandler
 
 from tg_bot import dispatcher
 from tg_bot.modules.helper_funcs.chat_status import user_admin
 from tg_bot.modules.sql import rss_sql as sql
+
+
+async def _fetch_feed(url):
+    """Fetch and parse an RSS feed without blocking the event loop."""
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            res = await client.get(url)
+            res.raise_for_status()
+        return feedparser.parse(res.content)
+    except httpx.HTTPError:
+        failed = feedparser.FeedParserDict()
+        failed.bozo = 1
+        failed.feed = feedparser.FeedParserDict()
+        failed.entries = []
+        return failed
 
 
 async def show_url(update, context):
@@ -17,7 +33,7 @@ async def show_url(update, context):
 
     if len(args) >= 1:
         tg_feed_link = args[0]
-        link_processed = parse(tg_feed_link)
+        link_processed = await _fetch_feed(tg_feed_link)
 
         if link_processed.bozo == 0:
             feed_title = link_processed.feed.get("title", default="Unknown")
@@ -85,11 +101,11 @@ async def add_url(update, context):
 
         tg_feed_link = args[0]
 
-        link_processed = parse(tg_feed_link)
+        link_processed = await _fetch_feed(tg_feed_link)
 
         # check if link is a valid RSS Feed link
         if link_processed.bozo == 0:
-            if len(link_processed.entries[0]) >= 1:
+            if link_processed.entries:
                 tg_old_entry_link = link_processed.entries[0].link
             else:
                 tg_old_entry_link = ""
@@ -119,7 +135,7 @@ async def remove_url(update, context):
 
         tg_feed_link = args[0]
 
-        link_processed = parse(tg_feed_link)
+        link_processed = await _fetch_feed(tg_feed_link)
 
         if link_processed.bozo == 0:
             user_data = sql.check_url_availability(tg_chat_id, tg_feed_link)
@@ -146,7 +162,7 @@ async def rss_update(context):
         tg_chat_id = row.chat_id
         tg_feed_link = row.feed_link
 
-        feed_processed = parse(tg_feed_link)
+        feed_processed = await _fetch_feed(tg_feed_link)
 
         tg_old_entry_link = row.old_entry_link
 
@@ -202,7 +218,7 @@ async def rss_set(context):
         tg_feed_link = row.feed_link
         tg_old_entry_link = row.old_entry_link
 
-        feed_processed = parse(tg_feed_link)
+        feed_processed = await _fetch_feed(tg_feed_link)
 
         new_entry_links = []
         new_entry_titles = []

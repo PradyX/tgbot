@@ -1,7 +1,6 @@
 import hashlib
 import os
 import math
-import requests
 import urllib.request as urllib
 
 from io import BytesIO

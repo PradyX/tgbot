@@ -1,10 +1,9 @@
 import html
-import json
 import random
 from datetime import datetime
 from typing import Optional, List
 
-import requests
+import httpx
 from telegram import Message, Chat, Update, Bot, MessageEntity
 from telegram.constants import ParseMode
 from telegram.ext import CommandHandler, filters
@@ -141,7 +140,8 @@ GMAPS_TIME = "https://maps.googleapis.com/maps/api/timezone/json"
 
 async def ping(update, context):
     bot = context.bot
-    requests.get('https://api.telegram.org')
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        await client.get('https://api.telegram.org')
     await update.effective_message.reply_text("Pong!")
 
 async def runs(update, context):
@@ -193,7 +193,8 @@ async def get_bot_ip(update, context):
     """ Sends the bot's IP address, so as to be able to ssh in if necessary.
         OWNER ONLY.
     """
-    res = requests.get("http://ipinfo.io/ip")
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        res = await client.get("https://ipinfo.io/ip")
     await update.message.reply_text(res.text)
 
 
@@ -292,38 +293,40 @@ async def get_time(update, context):
         await bot.send_sticker(update.effective_chat.id, BAN_STICKER)
         return
 
-    res = requests.get(GMAPS_LOC, params=dict(address=location))
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        res = await client.get(GMAPS_LOC, params=dict(address=location))
 
-    if res.status_code == 200:
-        loc = json.loads(res.text)
-        if loc.get('status') == 'OK':
-            lat = loc['results'][0]['geometry']['location']['lat']
-            long = loc['results'][0]['geometry']['location']['lng']
+        if res.status_code == 200:
+            loc = res.json()
+            if loc.get('status') == 'OK':
+                lat = loc['results'][0]['geometry']['location']['lat']
+                long = loc['results'][0]['geometry']['location']['lng']
 
-            country = None
-            city = None
+                country = None
+                city = None
 
-            address_parts = loc['results'][0]['address_components']
-            for part in address_parts:
-                if 'country' in part['types']:
-                    country = part.get('long_name')
-                if 'administrative_area_level_1' in part['types'] and not city:
-                    city = part.get('long_name')
-                if 'locality' in part['types']:
-                    city = part.get('long_name')
+                address_parts = loc['results'][0]['address_components']
+                for part in address_parts:
+                    if 'country' in part['types']:
+                        country = part.get('long_name')
+                    if 'administrative_area_level_1' in part['types'] and not city:
+                        city = part.get('long_name')
+                    if 'locality' in part['types']:
+                        city = part.get('long_name')
 
-            if city and country:
-                location = "{}, {}".format(city, country)
-            elif country:
-                location = country
+                if city and country:
+                    location = "{}, {}".format(city, country)
+                elif country:
+                    location = country
 
-            timenow = int(datetime.utcnow().timestamp())
-            res = requests.get(GMAPS_TIME, params=dict(location="{},{}".format(lat, long), timestamp=timenow))
-            if res.status_code == 200:
-                offset = json.loads(res.text)['dstOffset']
-                timestamp = json.loads(res.text)['rawOffset']
-                time_there = datetime.fromtimestamp(timenow + timestamp + offset).strftime("%H:%M:%S on %A %d %B")
-                await update.message.reply_text("It's {} in {}".format(time_there, location))
+                timenow = int(datetime.utcnow().timestamp())
+                res = await client.get(GMAPS_TIME,
+                                       params=dict(location="{},{}".format(lat, long), timestamp=timenow))
+                if res.status_code == 200:
+                    offset = res.json()['dstOffset']
+                    timestamp = res.json()['rawOffset']
+                    time_there = datetime.fromtimestamp(timenow + timestamp + offset).strftime("%H:%M:%S on %A %d %B")
+                    await update.message.reply_text("It's {} in {}".format(time_there, location))
 
 
 async def echo(update, context):
