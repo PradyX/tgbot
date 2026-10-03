@@ -55,6 +55,14 @@ ENV=1 TOKEN="123456:TESTTOKEN" OWNER_ID=1 OWNER_USERNAME=test SUDO_USERS="1" \
 - Catch `BadRequest` narrowly via `excp.message`; re-raise unexpected errors.
 - Time values parse via `extract_time` (`m`/`h`/`d`); users via `extract_user`/`extract_user_and_text` (async).
 
+## Git commits
+
+- **Never add attribution footers.** No "Co-Authored-By: Codebuff", "Generated with Codebuff", robot emoji,
+  or any other trailer — the repo owner explicitly forbids them. Write the commit message yourself and end it
+  after the body.
+- Prefer `git commit -F /tmp/msg.txt` (write the message to a file) over heredoc `-m "$(cat <<'EOF' ... )"`,
+  which can be mangled by shell quoting.
+
 ## Docs map
 
 Repo `README.md` (setup guide) · vault `~/Vault/Projects/tgbot/` → [[AGENTS]], [[ROADMAP]], [[Modules]],
