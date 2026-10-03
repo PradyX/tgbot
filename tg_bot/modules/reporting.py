@@ -95,10 +95,10 @@ async def report(update, context) -> str:
                     await bot.send_message(admin.user.id, msg + link, parse_mode=ParseMode.HTML)
 
                     if should_forward:
-                        message.reply_to_message.forward(admin.user.id)
+                        await message.reply_to_message.forward(admin.user.id)
 
                         if len(message.text.split()) > 1:  # If user is giving a reason, send his message too
-                            message.forward(admin.user.id)
+                            await message.forward(admin.user.id)
 
                 except Forbidden:
                     pass

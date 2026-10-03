@@ -62,7 +62,7 @@ async def sed(update, context):
         repl, repl_with, flags = sed_result
 
         if not repl:
-            update.effective_message.reply_to_message.reply_text("You're trying to replace... "
+            await update.effective_message.reply_to_message.reply_text("You're trying to replace... "
                                                                  "nothing with something?")
             return
 
@@ -70,7 +70,7 @@ async def sed(update, context):
             check = re.match(repl, to_fix, flags=re.IGNORECASE)
 
             if check and check.group(0).lower() == to_fix.lower():
-                update.effective_message.reply_to_message.reply_text("Hey everyone, {} is trying to make "
+                await update.effective_message.reply_to_message.reply_text("Hey everyone, {} is trying to make "
                                                                      "me say stuff I don't wanna "
                                                                      "say!".format(update.effective_user.first_name))
                 return
@@ -94,7 +94,7 @@ async def sed(update, context):
             await update.effective_message.reply_text("The result of the sed command was too long for \
                                                  telegram!")
         elif text:
-            update.effective_message.reply_to_message.reply_text(text)
+            await update.effective_message.reply_to_message.reply_text(text)
 
 
 __help__ = """

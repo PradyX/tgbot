@@ -194,7 +194,7 @@ async def get_bot_ip(update, context):
         OWNER ONLY.
     """
     res = requests.get("http://ipinfo.io/ip")
-    update.message.reply_text(res.text)
+    await update.message.reply_text(res.text)
 
 
 async def get_id(update, context):
@@ -323,7 +323,7 @@ async def get_time(update, context):
                 offset = json.loads(res.text)['dstOffset']
                 timestamp = json.loads(res.text)['rawOffset']
                 time_there = datetime.fromtimestamp(timenow + timestamp + offset).strftime("%H:%M:%S on %A %d %B")
-                update.message.reply_text("It's {} in {}".format(time_there, location))
+                await update.message.reply_text("It's {} in {}".format(time_there, location))
 
 
 async def echo(update, context):

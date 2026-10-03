@@ -19,6 +19,7 @@ from tg_bot.modules.helper_funcs.filters import CustomFilters
 from tg_bot.modules.helper_funcs.misc import split_message
 from tg_bot.modules.helper_funcs.string_handling import split_quotes
 from tg_bot.modules.log_channel import loggable
+from tg_bot.modules.muting import MUTE_PERMS
 from tg_bot.modules.sql import warns_sql as sql
 
 WARN_HANDLER_GROUP = 9
@@ -35,29 +36,35 @@ async def warn(user: User, chat: Chat, reason: str, message: Message, warner: Us
     else:
         warner_tag = "Automated warn filter."
 
-    limit, soft_warn = sql.get_warn_setting(chat.id)
+    limit, mode = sql.get_warn_setting(chat.id)
     num_warns, reasons = sql.warn_user(user.id, chat.id, reason)
     if num_warns >= limit:
         sql.reset_warns(user.id, chat.id)
-        if soft_warn:  # kick
+        if mode == "mute":  # mute
+            await message.bot.restrict_chat_member(chat.id, user.id, permissions=MUTE_PERMS)
+            reply = "{} warnings, {} has been muted!".format(limit, mention_html(user.id, user.first_name))
+
+        elif mode == "kick":  # kick - ban then immediately unban so they can rejoin
+            await chat.ban_member(user.id)
             await chat.unban_member(user.id)
             reply = "{} warnings, {} has been kicked!".format(limit, mention_html(user.id, user.first_name))
 
         else:  # ban
-            await chat.kick_member(user.id)
+            await chat.ban_member(user.id)
             reply = "{} warnings, {} has been banned!".format(limit, mention_html(user.id, user.first_name))
 
         for warn_reason in reasons:
             reply += "\n - {}".format(html.escape(warn_reason))
 
-        message.bot.send_sticker(chat.id, BAN_STICKER)  # banhammer marie sticker
+        await message.bot.send_sticker(chat.id, BAN_STICKER)  # banhammer marie sticker
         keyboard = []
         log_reason = "<b>{}:</b>" \
-                     "\n#WARN_BAN" \
+                     "\n#WARN_{}" \
                      "\n<b>Admin:</b> {}" \
                      "\n<b>User:</b> {} (<code>{}</code>)" \
                      "\n<b>Reason:</b> {}"\
                      "\n<b>Counts:</b> <code>{}/{}</code>".format(html.escape(chat.title),
+                                                                  mode.upper(),
                                                                   warner_tag,
                                                                   mention_html(user.id, user.first_name),
                                                                   user.id, reason, num_warns, limit)
@@ -333,14 +340,15 @@ async def set_warn_limit(update, context) -> str:
         else:
             await msg.reply_text("Give me a number as an arg!")
     else:
-        limit, soft_warn = sql.get_warn_setting(chat.id)
+        limit, mode = sql.get_warn_setting(chat.id)
 
         await msg.reply_text("The current warn limit is {}".format(limit))
     return ""
 
 
 @user_admin
-async def set_warn_strength(update, context):
+@loggable
+async def set_warn_mode(update, context):
     bot = context.bot
     args = context.args
     chat = update.effective_chat  # type: Optional[Chat]
@@ -348,33 +356,34 @@ async def set_warn_strength(update, context):
     msg = update.effective_message  # type: Optional[Message]
 
     if args:
-        if args[0].lower() in ("on", "yes"):
-            sql.set_warn_strength(chat.id, False)
-            await msg.reply_text("Too many warns will now result in a ban!")
-            return "<b>{}:</b>\n" \
-                   "<b>Admin:</b> {}\n" \
-                   "Has enabled strong warns. Users will be banned.".format(html.escape(chat.title),
-                                                                            mention_html(user.id, user.first_name))
+        mode = args[0].lower()
+        # legacy /strongwarn on/off syntax
+        if mode in ("on", "yes"):
+            mode = "ban"
+        elif mode in ("off", "no"):
+            mode = "kick"
 
-        elif args[0].lower() in ("off", "no"):
-            sql.set_warn_strength(chat.id, True)
-            await msg.reply_text("Too many warns will now result in a kick! Users will be able to join again after.")
+        if mode in ("ban", "kick", "mute"):
+            sql.set_warn_mode(chat.id, mode)
+            if mode == "ban":
+                await msg.reply_text("Too many warns will now result in a ban!")
+            elif mode == "kick":
+                await msg.reply_text("Too many warns will now result in a kick! Users will be able to join again "
+                                     "after.")
+            else:
+                await msg.reply_text("Too many warns will now result in a mute!")
             return "<b>{}:</b>\n" \
                    "<b>Admin:</b> {}\n" \
-                   "Has disabled strong warns. Users will only be kicked.".format(html.escape(chat.title),
-                                                                                  mention_html(user.id,
-                                                                                               user.first_name))
+                   "Has set the warn mode to <code>{}</code>.".format(html.escape(chat.title),
+                                                                     mention_html(user.id, user.first_name), mode)
 
         else:
-            await msg.reply_text("I only understand on/yes/no/off!")
+            await msg.reply_text("I only understand ban/kick/mute (or on/yes/off/no for the old strongwarn "
+                                 "syntax)!")
     else:
-        limit, soft_warn = sql.get_warn_setting(chat.id)
-        if soft_warn:
-            await msg.reply_text("Warns are currently set to *kick* users when they exceed the limits.",
-                           parse_mode=ParseMode.MARKDOWN)
-        else:
-            await msg.reply_text("Warns are currently set to *ban* users when they exceed the limits.",
-                           parse_mode=ParseMode.MARKDOWN)
+        limit, mode = sql.get_warn_setting(chat.id)
+        await msg.reply_text("Warns are currently set to *{}* users when they exceed the limit.".format(mode),
+                             parse_mode=ParseMode.MARKDOWN)
     return ""
 
 
@@ -396,9 +405,10 @@ def __migrate__(old_chat_id, new_chat_id):
 
 def __chat_settings__(chat_id, user_id):
     num_warn_filters = sql.num_warn_chat_filters(chat_id)
-    limit, soft_warn = sql.get_warn_setting(chat_id)
+    limit, mode = sql.get_warn_setting(chat_id)
     return "This chat has `{}` warn filters. It takes `{}` warns " \
-           "before the user gets *{}*.".format(num_warn_filters, limit, "kicked" if soft_warn else "banned")
+           "before the user gets *{}*.".format(num_warn_filters, limit, {"kick": "kicked",
+                                                                        "mute": "muted"}.get(mode, "banned"))
 
 
 __help__ = """
@@ -412,7 +422,8 @@ __help__ = """
 be a sentence, encompass it with quotes, as such: `/addwarn "very angry" This is an angry user`. 
  - /nowarn <keyword>: stop a warning filter
  - /warnlimit <num>: set the warning limit
- - /strongwarn <on/yes/off/no>: If set to on, exceeding the warn limit will result in a ban. Else, will just kick.
+ - /warnmode <ban/kick/mute>: what happens when the warn limit is reached. Defaults to ban.
+ - /strongwarn <on/yes/off/no>: legacy alias of /warnmode - on = ban, off = kick.
 """
 
 __mod_name__ = "Warnings"
@@ -426,7 +437,7 @@ RM_WARN_HANDLER = CommandHandler(["nowarn", "stopwarn"], remove_warn_filter, fil
 LIST_WARN_HANDLER = DisableAbleCommandHandler(["warnlist", "warnfilters"], list_warn_filters, filters=filters.ChatType.GROUPS, admin_ok=True)
 WARN_FILTER_HANDLER = MessageHandler(CustomFilters.has_text & filters.ChatType.GROUPS, reply_filter)
 WARN_LIMIT_HANDLER = CommandHandler("warnlimit", set_warn_limit, filters=filters.ChatType.GROUPS)
-WARN_STRENGTH_HANDLER = CommandHandler("strongwarn", set_warn_strength, filters=filters.ChatType.GROUPS)
+WARN_STRENGTH_HANDLER = CommandHandler(["warnmode", "strongwarn"], set_warn_mode, filters=filters.ChatType.GROUPS)
 
 dispatcher.add_handler(WARN_HANDLER)
 dispatcher.add_handler(CALLBACK_QUERY_HANDLER)

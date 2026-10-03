@@ -210,7 +210,7 @@ async def gbanlist(update, context):
 
 async def check_and_ban(update, user_id, should_message=True):
     if sql.is_user_gbanned(user_id):
-        await update.effective_chat.kick_member(user_id)
+        await update.effective_chat.ban_member(user_id)
         if should_message:
             await update.effective_message.reply_text("This is a bad person, they shouldn't be here!")
 

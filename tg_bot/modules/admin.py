@@ -10,7 +10,7 @@ from telegram.helpers import escape_markdown, mention_html
 from tg_bot import dispatcher
 from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.chat_status import bot_admin, can_promote, user_admin, can_pin
-from tg_bot.modules.helper_funcs.extraction import extract_user
+from tg_bot.modules.helper_funcs.extraction import extract_user, extract_user_and_text
 from tg_bot.modules.log_channel import loggable
 
 
@@ -26,7 +26,7 @@ async def promote(update, context) -> str:
     chat = update.effective_chat  # type: Optional[Chat]
     user = update.effective_user  # type: Optional[User]
 
-    user_id = await extract_user(message, args)
+    user_id, title = await extract_user_and_text(message, args)
     if not user_id:
         await message.reply_text("You don't seem to be referring to a user.")
         return ""
@@ -53,7 +53,16 @@ async def promote(update, context) -> str:
                           can_pin_messages=bot_member.can_pin_messages,
                           can_promote_members=bot_member.can_promote_members)
 
-    await message.reply_text("Successfully promoted!")
+    if title:
+        try:
+            await bot.set_chat_administrator_custom_title(chat_id, user_id, title[:16])
+            await message.reply_text("Successfully promoted {} with the title `{}`!".format(
+                mention_html(user_member.user.id, user_member.user.first_name), html.escape(title[:16])),
+                parse_mode=ParseMode.HTML)
+        except BadRequest as excp:
+            await message.reply_text("Promoted, but couldn't set the custom title: {}".format(excp.message))
+    else:
+        await message.reply_text("Successfully promoted!")
     return "<b>{}:</b>" \
            "\n#PROMOTED" \
            "\n<b>Admin:</b> {}" \
@@ -173,6 +182,56 @@ async def unpin(update, context) -> str:
 
 @bot_admin
 @user_admin
+@loggable
+async def set_gtitle(update, context):
+    bot = context.bot
+    chat = update.effective_chat
+    msg = update.effective_message  # type: Optional[Message]
+    args = context.args
+
+    if not args:
+        await msg.reply_text("Give me the new group title! Usage: `/setgtitle <title>`",
+                             parse_mode=ParseMode.MARKDOWN)
+        return ""
+
+    title = msg.text.split(None, 1)[1]
+    await bot.set_chat_title(chat.id, title)
+    await msg.reply_text("Group title updated!")
+    return "<b>{}:</b>" \
+           "\n#SETGTITLE" \
+           "\n<b>Admin:</b> {}" \
+           "\nNew title: <code>{}</code>".format(html.escape(chat.title),
+                                                mention_html(update.effective_user.id,
+                                                             update.effective_user.first_name),
+                                                html.escape(title))
+
+
+@bot_admin
+@user_admin
+@loggable
+async def set_gdesc(update, context):
+    bot = context.bot
+    chat = update.effective_chat
+    msg = update.effective_message  # type: Optional[Message]
+    args = context.args
+
+    if not args:
+        await msg.reply_text("Give me the new group description! Usage: `/setgdesc <description>`",
+                             parse_mode=ParseMode.MARKDOWN)
+        return ""
+
+    desc = msg.text.split(None, 1)[1]
+    await bot.set_chat_description(chat.id, desc)
+    await msg.reply_text("Group description updated!")
+    return "<b>{}:</b>" \
+           "\n#SETGDESC" \
+           "\n<b>Admin:</b> {}".format(html.escape(chat.title),
+                                       mention_html(update.effective_user.id,
+                                                    update.effective_user.first_name))
+
+
+@bot_admin
+@user_admin
 async def invite(update, context):
     bot = context.bot
     chat = update.effective_chat  # type: Optional[Chat]
@@ -215,8 +274,10 @@ __help__ = """
  - /pin: silently pins the message replied to - add 'loud' or 'notify' to give notifs to users.
  - /unpin: unpins the currently pinned message
  - /invitelink: gets invitelink
- - /promote: promotes the user replied to
+ - /promote <userhandle> [title]: promotes the user replied to (or specified), with an optional custom admin title
  - /demote: demotes the user replied to
+ - /setgtitle <title>: sets the group title
+ - /setgdesc <description>: sets the group description
 """
 
 __mod_name__ = "Admin"
@@ -228,6 +289,8 @@ INVITE_HANDLER = CommandHandler("invitelink", invite, filters=filters.ChatType.G
 
 PROMOTE_HANDLER = CommandHandler("promote", promote, filters=filters.ChatType.GROUPS)
 DEMOTE_HANDLER = CommandHandler("demote", demote, filters=filters.ChatType.GROUPS)
+SETGTITLE_HANDLER = CommandHandler("setgtitle", set_gtitle, filters=filters.ChatType.GROUPS)
+SETGDESC_HANDLER = CommandHandler("setgdesc", set_gdesc, filters=filters.ChatType.GROUPS)
 
 ADMINLIST_HANDLER = DisableAbleCommandHandler("adminlist", adminlist, filters=filters.ChatType.GROUPS)
 
@@ -236,4 +299,6 @@ dispatcher.add_handler(UNPIN_HANDLER)
 dispatcher.add_handler(INVITE_HANDLER)
 dispatcher.add_handler(PROMOTE_HANDLER)
 dispatcher.add_handler(DEMOTE_HANDLER)
+dispatcher.add_handler(SETGTITLE_HANDLER)
+dispatcher.add_handler(SETGDESC_HANDLER)
 dispatcher.add_handler(ADMINLIST_HANDLER)

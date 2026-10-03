@@ -48,7 +48,7 @@ async def get(bot, update, notename, show_none=True, no_format=False):
         if note.is_reply:
             if MESSAGE_DUMP:
                 try:
-                    bot.forward_message(chat_id=chat_id, from_chat_id=MESSAGE_DUMP, message_id=note.value)
+                    await bot.forward_message(chat_id=chat_id, from_chat_id=MESSAGE_DUMP, message_id=note.value)
                 except BadRequest as excp:
                     if excp.message == "Message to forward not found":
                         await message.reply_text("This message seems to have been lost - I'll remove it "
@@ -58,7 +58,7 @@ async def get(bot, update, notename, show_none=True, no_format=False):
                         raise
             else:
                 try:
-                    bot.forward_message(chat_id=chat_id, from_chat_id=chat_id, message_id=note.value)
+                    await bot.forward_message(chat_id=chat_id, from_chat_id=chat_id, message_id=note.value)
                 except BadRequest as excp:
                     if excp.message == "Message to forward not found":
                         await message.reply_text("Looks like the original sender of this note has deleted "

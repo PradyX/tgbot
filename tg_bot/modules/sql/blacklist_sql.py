@@ -23,11 +23,27 @@ class BlackListFilters(BASE):
                     and self.trigger == other.trigger)
 
 
+class BlacklistModes(BASE):
+    __tablename__ = "blacklist_modes"
+    chat_id = Column(String(14), primary_key=True)
+    # one of: delete, warn, mute, kick, ban
+    mode = Column(UnicodeText, nullable=False, default="delete")
+
+    def __init__(self, chat_id, mode="delete"):
+        self.chat_id = str(chat_id)
+        self.mode = mode
+
+
 BlackListFilters.__table__.create(bind=ENGINE, checkfirst=True)
+BlacklistModes.__table__.create(bind=ENGINE, checkfirst=True)
 
 BLACKLIST_FILTER_INSERTION_LOCK = threading.RLock()
+BLACKLIST_MODE_LOCK = threading.RLock()
 
 CHAT_BLACKLISTS = {}
+CHAT_BLACKLIST_MODES = {}
+
+VALID_MODES = ("delete", "warn", "mute", "kick", "ban")
 
 
 def add_to_blacklist(chat_id, trigger):
@@ -96,12 +112,41 @@ def __load_chat_blacklists():
         SESSION.close()
 
 
+def set_blacklist_mode(chat_id, mode):
+    if mode not in VALID_MODES:
+        raise ValueError("Invalid blacklist mode: {}".format(mode))
+    with BLACKLIST_MODE_LOCK:
+        setting = BlacklistModes(str(chat_id), mode)
+        SESSION.merge(setting)
+        SESSION.commit()
+        CHAT_BLACKLIST_MODES[str(chat_id)] = mode
+
+
+def get_blacklist_mode(chat_id):
+    return CHAT_BLACKLIST_MODES.get(str(chat_id), "delete")
+
+
 def migrate_chat(old_chat_id, new_chat_id):
     with BLACKLIST_FILTER_INSERTION_LOCK:
         chat_filters = SESSION.query(BlackListFilters).filter(BlackListFilters.chat_id == str(old_chat_id)).all()
         for filt in chat_filters:
             filt.chat_id = str(new_chat_id)
+        modes = SESSION.query(BlacklistModes).filter(BlacklistModes.chat_id == str(old_chat_id)).all()
+        for mode in modes:
+            mode.chat_id = str(new_chat_id)
         SESSION.commit()
+
+
+def __load_chat_blacklist_modes():
+    global CHAT_BLACKLIST_MODES
+    try:
+        for (chat_id, mode) in SESSION.query(BlacklistModes.chat_id, BlacklistModes.mode).all():
+            CHAT_BLACKLIST_MODES[chat_id] = mode
+    finally:
+        SESSION.close()
+
+
+__load_chat_blacklist_modes()
 
 
 __load_chat_blacklists()

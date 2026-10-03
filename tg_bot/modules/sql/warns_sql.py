@@ -48,12 +48,15 @@ class WarnSettings(BASE):
     __tablename__ = "warn_settings"
     chat_id = Column(String(14), primary_key=True)
     warn_limit = Column(Integer, default=3)
-    soft_warn = Column(Boolean, default=False)
+    soft_warn = Column(Boolean, default=False)  # legacy: True == kick
+    # what happens when the warn limit is reached: "ban", "kick" or "mute"
+    warn_mode = Column(String(8), default="ban")
 
-    def __init__(self, chat_id, warn_limit=3, soft_warn=False):
+    def __init__(self, chat_id, warn_limit=3, soft_warn=False, warn_mode="ban"):
         self.chat_id = str(chat_id)
         self.warn_limit = warn_limit
         self.soft_warn = soft_warn
+        self.warn_mode = warn_mode
 
     def __repr__(self):
         return "<{} has {} possible warns.>".format(self.chat_id, self.warn_limit)
@@ -197,13 +200,40 @@ def set_warn_strength(chat_id, soft_warn):
         SESSION.commit()
 
 
+def set_warn_mode(chat_id, mode):
+    with WARN_SETTINGS_LOCK:
+        curr_setting = SESSION.query(WarnSettings).get(str(chat_id))
+        if not curr_setting:
+            curr_setting = WarnSettings(chat_id, warn_mode=mode)
+
+        curr_setting.warn_mode = mode
+        curr_setting.soft_warn = (mode == "kick")  # keep legacy column in sync
+
+        SESSION.add(curr_setting)
+        SESSION.commit()
+
+
+def get_warn_mode(chat_id):
+    try:
+        setting = SESSION.query(WarnSettings).get(str(chat_id))
+        if setting and setting.warn_mode:
+            return setting.warn_mode
+        elif setting and setting.soft_warn:
+            return "kick"
+        return "ban"
+    finally:
+        SESSION.close()
+
+
 def get_warn_setting(chat_id):
+    """Returns (warn_limit, warn_mode)."""
     try:
         setting = SESSION.query(WarnSettings).get(str(chat_id))
         if setting:
-            return setting.warn_limit, setting.soft_warn
+            mode = setting.warn_mode or ("kick" if setting.soft_warn else "ban")
+            return setting.warn_limit, mode
         else:
-            return 3, False
+            return 3, "ban"
 
     finally:
         SESSION.close()

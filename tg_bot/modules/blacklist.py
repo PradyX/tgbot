@@ -6,13 +6,16 @@ from telegram import Message, Chat, Update, Bot
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
 from telegram.ext import CommandHandler, MessageHandler, filters
+from telegram.helpers import mention_html
 
 import tg_bot.modules.sql.blacklist_sql as sql
+import tg_bot.modules.sql.warns_sql as warns_sql
 from tg_bot import dispatcher, LOGGER
 from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.chat_status import user_admin, user_not_admin
 from tg_bot.modules.helper_funcs.extraction import extract_text
 from tg_bot.modules.helper_funcs.misc import split_message
+from tg_bot.modules.muting import MUTE_PERMS
 
 BLACKLIST_GROUP = 11
 
@@ -122,6 +125,9 @@ async def del_blacklist(update, context):
     for trigger in chat_filters:
         pattern = r"( |^|[^\w])" + re.escape(trigger) + r"( |$|[^\w])"
         if re.search(pattern, to_match, flags=re.IGNORECASE):
+            mode = sql.get_blacklist_mode(chat.id)
+            user = message.from_user
+
             try:
                 await message.delete()
             except BadRequest as excp:
@@ -129,7 +135,56 @@ async def del_blacklist(update, context):
                     pass
                 else:
                     LOGGER.exception("Error while deleting blacklist message.")
+
+            if mode == "warn" and user:
+                limit, _ = warns_sql.get_warn_setting(chat.id)
+                num_warns, _reasons = warns_sql.warn_user(user.id, chat.id, "Blacklisted word: {}".format(trigger))
+                if num_warns >= limit:
+                    warns_sql.reset_warns(user.id, chat.id)
+                    await chat.ban_member(user.id)
+                    await bot.send_message(chat.id, "{} has been banned for reaching the warn limit ({})."
+                                           .format(mention_html(user.id, user.first_name), limit),
+                                           parse_mode=ParseMode.HTML)
+                else:
+                    await bot.send_message(chat.id, "{} has been warned for using a blacklisted word "
+                                           "({}/{}).".format(mention_html(user.id, user.first_name), num_warns, limit),
+                                           parse_mode=ParseMode.HTML)
+
+            elif mode == "mute" and user:
+                await bot.restrict_chat_member(chat.id, user.id, permissions=MUTE_PERMS)
+
+            elif mode == "kick" and user:
+                await chat.ban_member(user.id)
+                await chat.unban_member(user.id)
+
+            elif mode == "ban" and user:
+                await chat.ban_member(user.id)
+
             break
+
+
+@user_admin
+async def set_blacklist_mode(update, context):
+    bot = context.bot
+    chat = update.effective_chat  # type: Optional[Chat]
+    msg = update.effective_message  # type: Optional[Message]
+    args = context.args
+
+    if not args:
+        await msg.reply_text("The current blacklist mode is: `{}`.\n"
+                             "Available modes: `delete`, `warn`, `mute`, `kick`, `ban`.".format(
+                                 sql.get_blacklist_mode(chat.id)), parse_mode=ParseMode.MARKDOWN)
+        return
+
+    mode = args[0].lower()
+    if mode not in sql.VALID_MODES:
+        await msg.reply_text("Invalid mode! Available modes: `delete`, `warn`, `mute`, `kick`, `ban`.",
+                             parse_mode=ParseMode.MARKDOWN)
+        return
+
+    sql.set_blacklist_mode(chat.id, mode)
+    await msg.reply_text("Blacklist mode updated - blacklisted words will now trigger: *{}*.".format(mode),
+                         parse_mode=ParseMode.MARKDOWN)
 
 
 def __migrate__(old_chat_id, new_chat_id):
@@ -138,7 +193,8 @@ def __migrate__(old_chat_id, new_chat_id):
 
 def __chat_settings__(chat_id, user_id):
     blacklisted = sql.num_blacklist_chat_filters(chat_id)
-    return "There are {} blacklisted words.".format(blacklisted)
+    return "There are {} blacklisted words. Blacklist mode is set to `{}`.".format(
+        blacklisted, sql.get_blacklist_mode(chat_id))
 
 
 def __stats__():
@@ -162,16 +218,19 @@ lines will allow you to add multiple triggers.
  - /unblacklist <triggers>: Remove triggers from the blacklist. Same newline logic applies here, so you can remove \
 multiple triggers at once.
  - /rmblacklist <triggers>: Same as above.
+ - /blacklistmode <delete/warn/mute/kick/ban>: what to do when a blacklisted word is said. Defaults to delete.
 """
 
 BLACKLIST_HANDLER = DisableAbleCommandHandler("blacklist", blacklist, filters=filters.ChatType.GROUPS,
                                               admin_ok=True)
 ADD_BLACKLIST_HANDLER = CommandHandler("addblacklist", add_blacklist, filters=filters.ChatType.GROUPS)
 UNBLACKLIST_HANDLER = CommandHandler(["unblacklist", "rmblacklist"], unblacklist, filters=filters.ChatType.GROUPS)
+BLACKLIST_MODE_HANDLER = CommandHandler("blacklistmode", set_blacklist_mode, filters=filters.ChatType.GROUPS)
 BLACKLIST_DEL_HANDLER = MessageHandler(
     (filters.TEXT | filters.COMMAND | filters.Sticker.ALL | filters.PHOTO) & filters.ChatType.GROUPS, del_blacklist)
 
 dispatcher.add_handler(BLACKLIST_HANDLER)
+dispatcher.add_handler(BLACKLIST_MODE_HANDLER)
 dispatcher.add_handler(ADD_BLACKLIST_HANDLER)
 dispatcher.add_handler(UNBLACKLIST_HANDLER)
 dispatcher.add_handler(BLACKLIST_DEL_HANDLER, group=BLACKLIST_GROUP)

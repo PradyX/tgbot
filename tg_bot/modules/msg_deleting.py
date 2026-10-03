@@ -17,21 +17,29 @@ async def purge(update, context) -> str:
     bot = context.bot
     args = context.args
     msg = update.effective_message  # type: Optional[Message]
-    if msg.reply_to_message:
+    if msg.reply_to_message or (args and args[0].isdigit()):
         user = update.effective_user  # type: Optional[User]
         chat = update.effective_chat  # type: Optional[Chat]
         if await can_delete(chat, bot.id):
-            message_id = msg.reply_to_message.message_id
-            delete_to = msg.message_id - 1
-            if args and args[0].isdigit():
-                new_del = message_id + int(args[0])
-                # No point deleting messages which haven't been written yet.
-                if new_del < delete_to:
-                    delete_to = new_del
+            if msg.reply_to_message:
+                message_id = msg.reply_to_message.message_id
+                delete_to = msg.message_id - 1
+                if args and args[0].isdigit():
+                    new_del = message_id + int(args[0])
+                    # No point deleting messages which haven't been written yet.
+                    if new_del < delete_to:
+                        delete_to = new_del
+            else:
+                # purge from a specific message id up to (but excluding) the command
+                message_id = int(args[0])
+                delete_to = msg.message_id - 1
+                if message_id > delete_to:
+                    await msg.reply_text("That message is newer than this command - nothing to purge.")
+                    return ""
 
             for m_id in range(delete_to, message_id - 1, -1):  # Reverse iteration over message ids
                 try:
-                    bot.delete_message(chat.id, m_id)
+                    await bot.delete_message(chat.id, m_id)
                 except BadRequest as err:
                     if err.message == "Message can't be deleted":
                         await bot.send_message(chat.id, "Cannot delete all messages. The messages may be too old, I might "
@@ -59,7 +67,8 @@ async def purge(update, context) -> str:
                                                                delete_to - message_id)
 
     else:
-        await msg.reply_text("Reply to a message to select where to start purging from.")
+        await msg.reply_text("Reply to a message to select where to start purging from, or give me a message id to "
+                             "purge from.")
 
     return ""
 
@@ -72,7 +81,7 @@ async def del_message(update, context) -> str:
         user = update.effective_user  # type: Optional[User]
         chat = update.effective_chat  # type: Optional[Chat]
         if await can_delete(chat, bot.id):
-            update.effective_message.reply_to_message.delete()
+            await update.effective_message.reply_to_message.delete()
             await update.effective_message.delete()
             return "<b>{}:</b>" \
                    "\n#DEL" \
@@ -90,6 +99,7 @@ __help__ = """
  - /del: deletes the message you replied to
  - /purge: deletes all messages between this and the replied to message.
  - /purge <integer X>: deletes the replied message, and X messages following it.
+ - /purge <message id>: without replying - deletes everything from that message id up to this command.
 """
 
 __mod_name__ = "Purges"

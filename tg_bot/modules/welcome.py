@@ -147,7 +147,7 @@ async def new_member(update, context):
         prev_welc = sql.get_clean_pref(chat.id)
         if prev_welc:
             try:
-                bot.delete_message(chat.id, prev_welc)
+                await bot.delete_message(chat.id, prev_welc)
             except BadRequest as excp:
                 pass
 
