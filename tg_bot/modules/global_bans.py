@@ -1,7 +1,9 @@
+import asyncio
 import html
 from io import BytesIO
 from typing import Optional, List
 
+import requests
 from telegram import Message, Update, Bot, User, Chat
 from telegram.constants import ParseMode
 from telegram.error import BadRequest, TelegramError
@@ -9,7 +11,7 @@ from telegram.ext import CommandHandler, MessageHandler, filters
 from telegram.helpers import mention_html
 
 import tg_bot.modules.sql.global_bans_sql as sql
-from tg_bot import dispatcher, OWNER_ID, SUDO_USERS, SUPPORT_USERS, STRICT_GBAN
+from tg_bot import dispatcher, OWNER_ID, SUDO_USERS, SUPPORT_USERS, STRICT_GBAN, USE_CAS
 from tg_bot.modules.helper_funcs.chat_status import user_admin, is_user_admin
 from tg_bot.modules.helper_funcs.extraction import extract_user, extract_user_and_text
 from tg_bot.modules.helper_funcs.filters import CustomFilters
@@ -208,11 +210,31 @@ async def gbanlist(update, context):
                                                 caption="Here is the list of currently gbanned users.")
 
 
+def _cas_offenses(user_id):
+    """Query the Combot Anti-Spam (CAS) API - returns number of offenses (0 = clean/unavailable)."""
+    try:
+        res = requests.get("https://api.cas.chat/check", params={"user_id": user_id}, timeout=5)
+        data = res.json()
+        if data.get("ok"):
+            return int(data.get("result", {}).get("offenses", 0))
+    except (ValueError, requests.RequestException):
+        pass
+    return 0
+
+
 async def check_and_ban(update, user_id, should_message=True):
     if sql.is_user_gbanned(user_id):
         await update.effective_chat.ban_member(user_id)
         if should_message:
             await update.effective_message.reply_text("This is a bad person, they shouldn't be here!")
+    elif USE_CAS:
+        offenses = await asyncio.to_thread(_cas_offenses, user_id)
+        if offenses:
+            await update.effective_chat.ban_member(user_id)
+            if should_message:
+                await update.effective_message.reply_text("{} was banned by CAS antispam ({} offenses)."
+                                                          .format(mention_html(user_id, "user"), offenses),
+                                                          parse_mode=ParseMode.HTML)
 
 
 async def enforce_gban(update, context):
