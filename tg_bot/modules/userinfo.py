@@ -11,6 +11,8 @@ from tg_bot import dispatcher, SUDO_USERS
 from tg_bot.modules.disable import DisableAbleCommandHandler
 from tg_bot.modules.helper_funcs.extraction import extract_user
 
+MAX_MESSAGE_LENGTH = MessageLimit.MAX_TEXT_LENGTH
+
 
 async def about_me(update, context):
     bot = context.bot

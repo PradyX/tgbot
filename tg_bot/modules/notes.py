@@ -5,6 +5,8 @@ from typing import Optional, List
 from telegram import InlineKeyboardMarkup
 from telegram.constants import ParseMode
 from telegram.constants import MessageLimit
+
+MAX_MESSAGE_LENGTH = MessageLimit.MAX_TEXT_LENGTH
 from telegram import Message, Update, Bot
 from telegram.error import BadRequest
 from telegram.ext import CommandHandler
