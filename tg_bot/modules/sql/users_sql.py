@@ -21,7 +21,7 @@ class Users(BASE):
 
 class Chats(BASE):
     __tablename__ = "chats"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     chat_name = Column(UnicodeText, nullable=False)
 
     def __init__(self, chat_id, chat_name):
@@ -36,7 +36,7 @@ class ChatMembers(BASE):
     __tablename__ = "chat_members"
     priv_chat_id = Column(Integer, primary_key=True)
     # NOTE: Use dual primary key instead of private primary key?
-    chat = Column(String(14),
+    chat = Column(String(50),
                   ForeignKey("chats.chat_id",
                              onupdate="CASCADE",
                              ondelete="CASCADE"),

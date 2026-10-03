@@ -152,7 +152,7 @@ DEFAULT_GOODBYE_MESSAGES = [
 
 class Welcome(BASE):
     __tablename__ = "welcome_pref"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     should_welcome = Column(Boolean, default=True)
     should_goodbye = Column(Boolean, default=True)
 
@@ -176,7 +176,7 @@ class Welcome(BASE):
 class WelcomeButtons(BASE):
     __tablename__ = "welcome_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), nullable=False)
+    chat_id = Column(String(50), nullable=False)
     name = Column(UnicodeText, nullable=False)
     url = Column(UnicodeText, nullable=False)
     same_line = Column(Boolean, default=False)
@@ -191,7 +191,7 @@ class WelcomeButtons(BASE):
 class GoodbyeButtons(BASE):
     __tablename__ = "leave_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), nullable=False)
+    chat_id = Column(String(50), nullable=False)
     name = Column(UnicodeText, nullable=False)
     url = Column(UnicodeText, nullable=False)
     same_line = Column(Boolean, default=False)

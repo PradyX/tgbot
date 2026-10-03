@@ -8,7 +8,7 @@ from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 class Permissions(BASE):
     __tablename__ = "permissions"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     # Booleans are for "is this locked", _NOT_ "is this allowed"
     audio = Column(Boolean, default=False)
     voice = Column(Boolean, default=False)
@@ -48,7 +48,7 @@ class Permissions(BASE):
 
 class Restrictions(BASE):
     __tablename__ = "restrictions"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     # Booleans are for "is this restricted", _NOT_ "is this allowed"
     messages = Column(Boolean, default=False)
     media = Column(Boolean, default=False)

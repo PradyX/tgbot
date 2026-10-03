@@ -46,11 +46,14 @@ ENV=1 TOKEN="123456:TESTTOKEN" OWNER_ID=1 OWNER_USERNAME=test SUDO_USERS="1" \
    follow the in-memory-cache pattern of existing `*_sql.py` files. DB URIs are normalized in `tg_bot/__init__.py`:
    bare `postgres://`/`postgresql://` become `postgresql+psycopg2://` — SQLAlchemy 2.1+ resolves a bare
    `postgresql://` to psycopg3 (`import psycopg`), which this project does not install.
-9. **Telegram IDs are 64-bit** — always `BigInteger` for columns holding user/chat/message IDs, never
-   `Integer` (IDs crossed 2^31 in 2025; an `INTEGER` insert raises `NumericValueOutOfRange` and poisons the
-   shared session). Internal autoincrement keys stay `Integer`. `tg_bot/modules/sql/__init__.py` auto-widens
-   legacy Postgres columns to `BIGINT` at startup; keep its `_BIGINT_COLUMNS` map in sync when adding tables.
-   Reflect and ALTER on one connection — separate connections self-deadlock on the ALTER's locks.
+9. **Telegram IDs are 64-bit** — `BigInteger` for columns holding user/chat/message IDs, never `Integer`
+   (IDs crossed 2^31 in 2025; an `INTEGER` insert raises `NumericValueOutOfRange` and poisons the shared
+   session). Chat IDs are stored as strings: use `String(50)`, never `String(14)` (a `-100` supergroup ID is
+   already 14 chars, so the next digit overflows `VARCHAR(14)`). Internal autoincrement keys stay `Integer`.
+   `widen_legacy_columns()` in `tg_bot/modules/sql/__init__.py` (called from `__main__.py` after module
+   import) auto-widens legacy Postgres columns to match the models — driven by `BASE.metadata`, so new
+   columns are covered automatically. Reflect and ALTER on one connection — separate connections
+   self-deadlock on the ALTER's locks.
 9. Decorator order on handlers: `@bot_admin`/`@user_admin`/... outermost, `@loggable` innermost; `@loggable`
    handlers return an HTML log string (or `""`).
 10. Keep the update rate limiter (`TypeHandler` at group -100 in `__main__.py`) working.

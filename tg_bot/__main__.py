@@ -70,6 +70,11 @@ for module_name in ALL_MODULES:
     if hasattr(imported_module, "__user_settings__"):
         USER_SETTINGS[imported_module.__mod_name__.lower()] = imported_module
 
+# All model modules are now imported, so BASE.metadata knows every table: widen any legacy
+# Postgres columns (INTEGER user IDs, short VARCHAR chat IDs) before the bot starts serving.
+from tg_bot.modules.sql import widen_legacy_columns
+widen_legacy_columns()
+
 
 async def call_maybe_async(func, *args, **kwargs):
     """Call a module settings hook; hooks may be sync or async."""

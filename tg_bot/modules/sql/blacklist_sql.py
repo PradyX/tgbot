@@ -7,7 +7,7 @@ from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 class BlackListFilters(BASE):
     __tablename__ = "blacklist"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     trigger = Column(UnicodeText, primary_key=True, nullable=False)
 
     def __init__(self, chat_id, trigger):
@@ -25,7 +25,7 @@ class BlackListFilters(BASE):
 
 class BlacklistModes(BASE):
     __tablename__ = "blacklist_modes"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     # one of: delete, warn, mute, kick, ban
     mode = Column(UnicodeText, nullable=False, default="delete")
 

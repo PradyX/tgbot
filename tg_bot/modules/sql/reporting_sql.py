@@ -20,7 +20,7 @@ class ReportingUserSettings(BASE):
 
 class ReportingChatSettings(BASE):
     __tablename__ = "chat_report_settings"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     should_report = Column(Boolean, default=True)
 
     def __init__(self, chat_id):

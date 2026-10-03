@@ -23,7 +23,7 @@ class Federations(BASE):
 
 class FedChats(BASE):
     __tablename__ = "fed_chats"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     fed_id = Column(String(36), nullable=False)
 
     def __init__(self, chat_id, fed_id):

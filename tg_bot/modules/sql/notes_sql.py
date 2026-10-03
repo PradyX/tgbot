@@ -9,7 +9,7 @@ from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 class Notes(BASE):
     __tablename__ = "notes"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     name = Column(UnicodeText, primary_key=True)
     value = Column(UnicodeText, nullable=False)
     file = Column(UnicodeText)
@@ -31,7 +31,7 @@ class Notes(BASE):
 class Buttons(BASE):
     __tablename__ = "note_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), nullable=False)
+    chat_id = Column(String(50), nullable=False)
     note_name = Column(UnicodeText, nullable=False)
     name = Column(UnicodeText, nullable=False)
     url = Column(UnicodeText, nullable=False)

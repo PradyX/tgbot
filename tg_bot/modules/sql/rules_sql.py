@@ -7,7 +7,7 @@ from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 class Rules(BASE):
     __tablename__ = "rules"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     rules = Column(UnicodeText, default="")
 
     def __init__(self, chat_id):

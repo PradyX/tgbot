@@ -7,7 +7,7 @@ from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 class CustomFilters(BASE):
     __tablename__ = "cust_filters"
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(50), primary_key=True)
     keyword = Column(UnicodeText, primary_key=True, nullable=False)
     reply = Column(UnicodeText, nullable=False)
     is_sticker = Column(Boolean, nullable=False, default=False)
@@ -47,7 +47,7 @@ class CustomFilters(BASE):
 class Buttons(BASE):
     __tablename__ = "cust_filter_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), nullable=False)
+    chat_id = Column(String(50), nullable=False)
     keyword = Column(UnicodeText, nullable=False)
     name = Column(UnicodeText, nullable=False)
     url = Column(UnicodeText, nullable=False)
