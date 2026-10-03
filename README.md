@@ -1,185 +1,238 @@
 # tgbot
-A modular telegram Python bot running on python3 with an sqlalchemy database.
 
-Originally a simple group management bot with multiple admin features, it has evolved into becoming a basis for modular
-bots aiming to provide simple plugin expansion via a simple drag and drop.
+A modular Telegram group-management bot, originally based on [Marie](https://t.me/BanhammerMarie_bot)
+([PaulSonOfLars/tgbot](https://github.com/PaulSonOfLars/tgbot)), and modernized with features inspired by
+[Rose](https://t.me/MissRose_bot).
 
-Can be found on telegram as [Marie](https://t.me/BanhammerMarie_bot).
+Runs on **Python 3.10+** with the [python-telegram-bot **v22**](https://github.com/python-telegram-bot/python-telegram-bot)
+async API and **SQLAlchemy 2.x** (PostgreSQL in production, SQLite for local development).
 
-For questions regarding creating your own bot, please head to [this chat](https://t.me/MarieOT) where you'll find a
-group of volunteers to help. We'll also help when a database schema changes, and some table column needs to be
-modified/added (this info can also be found in the commit messages)
+Everything is modular: drop a `.py` file into `tg_bot/modules/` and it is loaded automatically, with its help text
+merged into `/help`.
 
+---
 
-Join the [news channel](https://t.me/MarieNews) if you just want to stay in the loop about new features or
-announcements.
+## Features
 
-Marie and I can also be found moderating the [marie support group](https://t.me/MarieSupport) aimed at providing help
-setting up Marie in your chats (*not* for bot clones).
-Feel free to join to report bugs, and stay in the loop on the status of the bot development.
+**Moderation:** bans, temp-bans, kicks, mutes, temp-mutes, warns with configurable actions
+(`/warnmode ban|kick|mute`), word blacklists with modes (`/blacklistmode delete|warn|mute|kick|ban`),
+locks and restrictions, anti-flood, purges (`/purge`, `/purge <msgid>`, `/del`), global bans (with optional
+[Combot Anti-Spam / CAS](https://cas.chat) enforcement), reporting to admins.
 
-Note to maintainers that all schema changes will be found in the commit messages, and its their responsibility to read any new commits.
+**Federations (Rose-style):** ban a user across *many groups at once* — `/newfed`, `/joinfed`, `/fban`, fed admins,
+automatic fban enforcement when a banned user joins any federated group.
 
+**Group configuration:** welcome/goodbye messages with buttons and media, rules, notes with buttons,
+custom filters with buttons, per-command disable/enable, log channels.
 
-## IMPORTANT NOTICE:
+**Admin tools:** promote with custom titles (`/promote <user> <title>`), demote, pin/unpin,
+`/setgtitle`, `/setgdesc`, invite links, admin list.
 
-This project is no longer under active maintenance. Occasional bug fixes may be released, but no new features are scheduled to be added.
-Users of [Marie](https://t.me/BanhammerMarie_bot) are encouraged to migrate to [Rose](https://t.me/MissRose_bot), which
-is the improved version of this project, written in golang, with scalability in mind.
+**Extras:** AFK, userinfo/bios, stickers (`/kang`), reactions, `/paste` (dpaste.org), urban dictionary,
+RSS feeds, sed, backups/restore.
 
-## Starting the bot.
+---
 
-Once you've setup your database and your configuration (see below) is complete, simply run:
+## Setup guide
 
-`python3 -m tg_bot`
+### 1. Prerequisites
 
+- **Python 3.10 or newer** (3.10–3.14 all work; the bot is developed and tested on 3.14).
+- A Telegram bot token from [@BotFather](https://t.me/BotFather) (`/newbot`).
+- Your Telegram user ID (get it from [@userinfobot](https://t.me/userinfobot)).
+- **PostgreSQL** for production (SQLite works out of the box for development — see step 4).
 
-## Setting up the bot (Read this before trying to use!):
-Please make sure to use python3.6, as I cannot guarantee everything will work as expected on older python versions!
-This is because markdown parsing is done by iterating through a dict, which are ordered by default in 3.6.
+### 2. Get the code and install dependencies
 
-### Configuration
+```bash
+git clone https://github.com/PradyX/tgbot.git
+cd tgbot
 
-There are two possible ways of configuring your bot: a config.py file, or ENV variables.
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-The prefered version is to use a `config.py` file, as it makes it easier to see all your settings grouped together.
-This file should be placed in your `tg_bot` folder, alongside the `__main__.py` file . 
-This is where your bot token will be loaded from, as well as your database URI (if you're using a database), and most of 
-your other settings.
-
-It is recommended to import sample_config and extend the Config class, as this will ensure your config contains all 
-defaults set in the sample_config, hence making it easier to upgrade.
-
-An example `config.py` file could be:
+pip install -r requirements.txt
 ```
+
+### 3. Set up the database
+
+**PostgreSQL (recommended for production):**
+
+```bash
+sudo apt-get update && sudo apt-get install postgresql   # debian/ubuntu
+
+sudo su - postgres
+createuser -P -s -e YOUR_USER          # choose a password when asked
+createdb -O YOUR_USER YOUR_DB_NAME
+exit
+```
+
+Your database URI will be:
+
+```
+postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/YOUR_DB_NAME
+```
+
+**SQLite (development):** no setup needed — just use `sqlite:///dev.db` as your database URI.
+
+All tables are created automatically on first start.
+
+### 4. Configure the bot
+
+The recommended way is a `tg_bot/config.py` file (it is git-ignored). Extend the sample config so upgrades keep
+working:
+
+```python
+# tg_bot/config.py
 from tg_bot.sample_config import Config
 
 
 class Development(Config):
-    OWNER_ID = 254318997  # my telegram ID
-    OWNER_USERNAME = "SonOfLars"  # my telegram username
-    API_KEY = "your bot api key"  # my api key, as provided by the botfather
-    SQLALCHEMY_DATABASE_URI = 'postgresql://username:password@localhost:5432/database'  # sample db credentials
-    MESSAGE_DUMP = '-1234567890' # some group chat that your bot is a member of
-    USE_MESSAGE_DUMP = True
-    SUDO_USERS = [18673980, 83489514]  # List of id's for users which have sudo access to the bot.
-    LOAD = []
-    NO_LOAD = ['translation']
+    OWNER_ID = 254318997            # your telegram user ID (integer)
+    OWNER_USERNAME = "your_username"
+    API_KEY = "your bot api key"    # from @BotFather
+    SQLALCHEMY_DATABASE_URI = 'postgresql://YOUR_USER:YOUR_PASSWORD@localhost:5432/YOUR_DB_NAME'
+
+    SUDO_USERS = [254318997]        # full access to the bot
+    SUPPORT_USERS = []              # can gban/ungban
+    WHITELIST_USERS = []            # can't be banned/kicked by the bot
+
+    LOAD = []                       # empty = load all modules
+    NO_LOAD = ['translation', 'rss', 'sed']   # modules you don't want
 ```
 
-If you can't have a config.py file (EG on heroku), it is also possible to use environment variables.
-The following env variables are supported:
- - `ENV`: Setting this to ANYTHING will enable env variables
+Alternatively, configure with environment variables (set `ENV` to anything to enable this mode — this is what the
+`Procfile`/Heroku deployment uses):
 
- - `TOKEN`: Your bot token, as a string.
- - `OWNER_ID`: An integer of consisting of your owner ID
- - `OWNER_USERNAME`: Your username
+| Variable | Description |
+| --- | --- |
+| `ENV` | Set to anything to enable env-var config |
+| `TOKEN` | Bot token from BotFather |
+| `OWNER_ID` | Your telegram user ID (integer) |
+| `OWNER_USERNAME` | Your telegram username |
+| `DATABASE_URL` | Database URI (`postgres://` and `postgresql://` both accepted) |
+| `MESSAGE_DUMP` | Optional chat where replied/saved messages are stored |
+| `LOAD` | Space-separated modules to load (empty = all) |
+| `NO_LOAD` | Space-separated modules to skip |
+| `WEBHOOK` | Set to anything to use webhooks instead of long polling |
+| `URL` | Public URL for webhooks (webhook mode only) |
+| `CERT_PATH` | Path to webhook certificate (optional) |
+| `PORT` | Webhook port (default 5000) |
+| `SUDO_USERS` | Space-separated user IDs with full bot access |
+| `SUPPORT_USERS` | Space-separated user IDs that can gban/ungban |
+| `WHITELIST_USERS` | Space-separated user IDs that can't be banned |
+| `DONATION_LINK` | Optional donation link shown in `/donate` |
+| `DEL_CMDS` | Delete command messages from users without permission |
+| `STRICT_GBAN` | Enforce gbans in every group the bot joins |
+| `USE_CAS` | Ban new members flagged by the Combot Anti-Spam database |
+| `WORKERS` | Worker threads (default 8) |
+| `BAN_STICKER` | Sticker sent when someone is banned |
+| `ALLOW_EXCL` | Allow `!` as command prefix in addition to `/` |
 
- - `DATABASE_URL`: Your database URL
- - `MESSAGE_DUMP`: optional: a chat where your replied saved messages are stored, to stop people deleting their old 
- - `LOAD`: Space separated list of modules you would like to load
- - `NO_LOAD`: Space separated list of modules you would like NOT to load
- - `WEBHOOK`: Setting this to ANYTHING will enable webhooks when in env mode
- messages
- - `URL`: The URL your webhook should connect to (only needed for webhook mode)
+### 5. Run it
 
- - `SUDO_USERS`: A space separated list of user_ids which should be considered sudo users
- - `SUPPORT_USERS`: A space separated list of user_ids which should be considered support users (can gban/ungban,
- nothing else)
- - `WHITELIST_USERS`: A space separated list of user_ids which should be considered whitelisted - they can't be banned.
- - `DONATION_LINK`: Optional: link where you would like to receive donations.
- - `CERT_PATH`: Path to your webhook certificate
- - `PORT`: Port to use for your webhooks
- - `DEL_CMDS`: Whether to delete commands from users which don't have rights to use that command
- - `STRICT_GBAN`: Enforce gbans across new groups as well as old groups. When a gbanned user talks, he will be banned.
- - `WORKERS`: Number of threads to use. 8 is the recommended (and default) amount, but your experience may vary.
- __Note__ that going crazy with more threads wont necessarily speed up your bot, given the large amount of sql data 
- accesses, and the way python asynchronous calls work.
- - `BAN_STICKER`: Which sticker to use when banning people.
- - `ALLOW_EXCL`: Whether to allow using exclamation marks ! for commands as well as /.
+```bash
+python3 -m tg_bot
+```
 
-### Python dependencies
+You should see `Successfully loaded modules: [...]` followed by `Using long polling.`
 
-Install the necessary python dependencies by moving to the project directory and running:
+Now talk to your bot: `/start` in PM. Then **add it to your groups and promote it as admin** so moderation
+commands can work.
 
-`pip3 install -r requirements.txt`.
+### 6. (Optional) Run it as a service
 
-This will install all necessary python packages.
+`systemd` unit example:
 
-### Database
+```ini
+[Unit]
+Description=tgbot telegram bot
+After=network.target postgresql.service
 
-If you wish to use a database-dependent module (eg: locks, notes, userinfo, users, filters, welcomes),
-you'll need to have a database installed on your system. I use postgres, so I recommend using it for optimal compatibility.
+[Service]
+Type=simple
+User=botuser
+WorkingDirectory=/opt/tgbot
+Environment=ENV=1
+EnvironmentFile=/opt/tgbot/.env
+ExecStart=/opt/tgbot/.venv/bin/python -m tg_bot
+Restart=on-failure
+RestartSec=5
 
-In the case of postgres, this is how you would set up a the database on a debian/ubuntu system. Other distributions may vary.
+[Install]
+WantedBy=multi-user.target
+```
 
-- install postgresql:
+A `Procfile` (`worker: python3 -m tg_bot`) is included for Heroku-style hosts.
 
-`sudo apt-get update && sudo apt-get install postgresql`
-
-- change to the postgres user:
-
-`sudo su - postgres`
-
-- create a new database user (change YOUR_USER appropriately):
-
-`createuser -P -s -e YOUR_USER`
-
-This will be followed by you needing to input your password.
-
-- create a new database table:
-
-`createdb -O YOUR_USER YOUR_DB_NAME`
-
-Change YOUR_USER and YOUR_DB_NAME appropriately.
-
-- finally:
-
-`psql YOUR_DB_NAME -h YOUR_HOST YOUR_USER`
-
-This will allow you to connect to your database via your terminal.
-By default, YOUR_HOST should be 0.0.0.0:5432.
-
-You should now be able to build your database URI. This will be:
-
-`sqldbtype://username:pw@hostname:port/db_name`
-
-Replace sqldbtype with whichever db youre using (eg postgres, mysql, sqllite, etc)
-repeat for your username, password, hostname (localhost?), port (5432?), and db name.
+---
 
 ## Modules
-### Setting load order.
 
-The module load order can be changed via the `LOAD` and `NO_LOAD` configuration settings.
-These should both represent lists.
+### Load order
 
-If `LOAD` is an empty list, all modules in `modules/` will be selected for loading by default.
+`LOAD` and `NO_LOAD` control which modules from `tg_bot/modules/` are loaded. If `LOAD` is empty, all modules load.
+`NO_LOAD` takes priority over `LOAD`.
 
-If `NO_LOAD` is not present, or is an empty list, all modules selected for loading will be loaded.
+### Creating your own modules
 
-If a module is in both `LOAD` and `NO_LOAD`, the module will not be loaded - `NO_LOAD` takes priority.
+Drop a `.py` file in `tg_bot/modules/`. Register handlers on the `dispatcher` (a PTB v22 `Application`) at import
+time. Handlers are `async def` and take `(update, context)`:
 
-### Creating your own modules.
+```python
+from telegram.ext import CommandHandler, filters
 
-Creating a module has been simplified as much as possible - but do not hesitate to suggest further simplification.
+from tg_bot import dispatcher
 
-All that is needed is that your .py file be in the modules folder.
 
-To add commands, make sure to import the dispatcher via
+async def hello(update, context):
+    await update.effective_message.reply_text("Hello!")
 
-`from tg_bot import dispatcher`.
 
-You can then add commands using the usual
+__mod_name__ = "My module"
+__help__ = """
+ - /hello: says hello
+"""
 
-`dispatcher.add_handler()`.
+HELLO_HANDLER = CommandHandler("hello", hello, filters=filters.ChatType.GROUPS)
+dispatcher.add_handler(HELLO_HANDLER)
+```
 
-Assigning the `__help__` variable to a string describing this modules' available
-commands will allow the bot to load it and add the documentation for
-your module to the `/help` command. Setting the `__mod_name__` variable will also allow you to use a nicer, user
-friendly name for a module.
+Module hooks the loader understands:
 
-The `__migrate__()` function is used for migrating chats - when a chat is upgraded to a supergroup, the ID changes, so 
-it is necessary to migrate it in the db.
+- `__mod_name__` — friendly module name (used in `/help` and `/settings`)
+- `__help__` — help text shown by `/help <module name>`
+- `__migrate__(old_chat_id, new_chat_id)` — called when a group is upgraded to a supergroup
+- `__stats__()` — stats for the owner's `/stats`
+- `__import_data__(chat_id, data)` / `__export_data__(chat_id)` — backups
+- `__chat_settings__(chat_id, user_id)` / `__user_settings__(user_id)` — settings menu (may be sync or async)
 
-The `__stats__()` function is for retrieving module statistics, eg number of users, number of chats. This is accessed 
-through the `/stats` command, which is only available to the bot owner.
+**Important (PTB v22):** every Telegram API call is a coroutine — always `await` it
+(`await message.reply_text(...)`, `await bot.ban_member(...)`). Use `ChatPermissions` for restrictions, and note
+that `check_update()` is synchronous: never make API calls there — gate inside the callback instead.
+
+---
+
+## Upgrading from the pre-2026 version
+
+The codebase was migrated from python-telegram-bot 11 (sync) to 22 (async) and SQLAlchemy 1.x to 2.x. Two schema
+details changed; fresh databases are created correctly automatically, but if you're reusing an old database:
+
+- `warns.reasons` is now a `JSON` column (was a postgres `ARRAY`). Migrate with
+  `ALTER TABLE warns ALTER COLUMN reasons TYPE JSON USING to_json(reasons);` or reset warns.
+- Button tables (`note_urls`, `cust_filter_urls`, `welcome_urls`, `leave_urls`) now use `id` as the sole primary
+  key. Existing tables keep working on postgres; no action needed.
+
+---
+
+## Documentation & roadmap
+
+Project documentation, architecture notes, and the development roadmap live in the Obsidian vault at
+`~/Vault/Projects/tgbot/` — see `AGENTS.md` there for the agent/developer guide and `ROADMAP.md` for what is done
+and what is planned.
+
+## Credits
+
+- Original bot: [PaulSonOfLars/tgbot](https://github.com/PaulSonOfLars/tgbot) (Marie)
+- Feature inspiration: [Rose](https://t.me/MissRose_bot)
+- Everyone who has contributed to this fork.

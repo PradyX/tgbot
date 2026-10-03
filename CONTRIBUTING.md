@@ -6,6 +6,10 @@ Contributions are very welcome! Here are some guidelines on how the project is d
 
 - Adhere to PEP8 as much as possible.
 
+- The bot runs on python-telegram-bot v22: all handlers are `async def (update, context)`, and **every** Telegram
+API call must be `await`ed. Helpers that call the API must be async too. Never make API calls inside a handler's
+`check_update()` - it is synchronous; gate in the callback instead.
+
 - Line lengths should be under 120 characters, use list comprehensions over map/filter, don't leave trailing whitespace.
 
 - More complex pieces of code should be commented for future reference.
