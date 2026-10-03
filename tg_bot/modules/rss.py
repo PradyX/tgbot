@@ -2,7 +2,8 @@ import html
 import re
 
 from feedparser import parse
-from telegram import ParseMode, constants
+from telegram import constants
+from telegram.constants import ParseMode
 from telegram.ext import CommandHandler
 
 from tg_bot import dispatcher, updater
@@ -10,7 +11,9 @@ from tg_bot.modules.helper_funcs.chat_status import user_admin
 from tg_bot.modules.sql import rss_sql as sql
 
 
-def show_url(bot, update, args):
+async def show_url(update, context):
+    bot = context.bot
+    args = context.args
     tg_chat_id = str(update.effective_chat.id)
 
     if len(args) >= 1:
@@ -42,16 +45,17 @@ def show_url(bot, update, args):
                                                                      html.escape(entry_link))
                 final_message = feed_message + entry_message
 
-                bot.send_message(chat_id=tg_chat_id, text=final_message, parse_mode=ParseMode.HTML)
+                await bot.send_message(chat_id=tg_chat_id, text=final_message, parse_mode=ParseMode.HTML)
             else:
-                bot.send_message(chat_id=tg_chat_id, text=feed_message, parse_mode=ParseMode.HTML)
+                await bot.send_message(chat_id=tg_chat_id, text=feed_message, parse_mode=ParseMode.HTML)
         else:
-            update.effective_message.reply_text("This link is not an RSS Feed link")
+            await update.effective_message.reply_text("This link is not an RSS Feed link")
     else:
-        update.effective_message.reply_text("URL missing")
+        await update.effective_message.reply_text("URL missing")
 
 
-def list_urls(bot, update):
+async def list_urls(update, context):
+    bot = context.bot
     tg_chat_id = str(update.effective_chat.id)
 
     user_data = sql.get_urls(tg_chat_id)
@@ -63,16 +67,18 @@ def list_urls(bot, update):
 
     # check if the length of the message is too long to be posted in 1 chat bubble
     if len(final_content) == 0:
-        bot.send_message(chat_id=tg_chat_id, text="This chat is not subscribed to any links")
+        await bot.send_message(chat_id=tg_chat_id, text="This chat is not subscribed to any links")
     elif len(final_content) <= constants.MAX_MESSAGE_LENGTH:
-        bot.send_message(chat_id=tg_chat_id, text="This chat is subscribed to the following links:\n" + final_content)
+        await bot.send_message(chat_id=tg_chat_id, text="This chat is subscribed to the following links:\n" + final_content)
     else:
-        bot.send_message(chat_id=tg_chat_id, parse_mode=ParseMode.HTML,
+        await bot.send_message(chat_id=tg_chat_id, parse_mode=ParseMode.HTML,
                          text="<b>Warning:</b> The message is too long to be sent")
 
 
 @user_admin
-def add_url(bot, update, args):
+async def add_url(update, context):
+    bot = context.bot
+    args = context.args
     if len(args) >= 1:
         chat = update.effective_chat
 
@@ -94,19 +100,21 @@ def add_url(bot, update, args):
 
             # check if there's an entry already added to DB by the same user in the same group with the same link
             if row:
-                update.effective_message.reply_text("This URL has already been added")
+                await update.effective_message.reply_text("This URL has already been added")
             else:
                 sql.add_url(tg_chat_id, tg_feed_link, tg_old_entry_link)
 
-                update.effective_message.reply_text("Added URL to subscription")
+                await update.effective_message.reply_text("Added URL to subscription")
         else:
-            update.effective_message.reply_text("This link is not an RSS Feed link")
+            await update.effective_message.reply_text("This link is not an RSS Feed link")
     else:
-        update.effective_message.reply_text("URL missing")
+        await update.effective_message.reply_text("URL missing")
 
 
 @user_admin
-def remove_url(bot, update, args):
+async def remove_url(update, context):
+    bot = context.bot
+    args = context.args
     if len(args) >= 1:
         tg_chat_id = str(update.effective_chat.id)
 
@@ -120,16 +128,16 @@ def remove_url(bot, update, args):
             if user_data:
                 sql.remove_url(tg_chat_id, tg_feed_link)
 
-                update.effective_message.reply_text("Removed URL from subscription")
+                await update.effective_message.reply_text("Removed URL from subscription")
             else:
-                update.effective_message.reply_text("You haven't subscribed to this URL yet")
+                await update.effective_message.reply_text("You haven't subscribed to this URL yet")
         else:
-            update.effective_message.reply_text("This link is not an RSS Feed link")
+            await update.effective_message.reply_text("This link is not an RSS Feed link")
     else:
-        update.effective_message.reply_text("URL missing")
+        await update.effective_message.reply_text("URL missing")
 
 
-def rss_update(bot, job):
+async def rss_update(bot, job):
     user_data = sql.get_all()
 
     # this loop checks for every row in the DB
@@ -166,21 +174,21 @@ def rss_update(bot, job):
                 final_message = "<b>{}</b>\n\n{}".format(html.escape(title), html.escape(link))
 
                 if len(final_message) <= constants.MAX_MESSAGE_LENGTH:
-                    bot.send_message(chat_id=tg_chat_id, text=final_message, parse_mode=ParseMode.HTML)
+                    await bot.send_message(chat_id=tg_chat_id, text=final_message, parse_mode=ParseMode.HTML)
                 else:
-                    bot.send_message(chat_id=tg_chat_id, text="<b>Warning:</b> The message is too long to be sent",
+                    await bot.send_message(chat_id=tg_chat_id, text="<b>Warning:</b> The message is too long to be sent",
                                      parse_mode=ParseMode.HTML)
         else:
             for link, title in zip(reversed(new_entry_links[-5:]), reversed(new_entry_titles[-5:])):
                 final_message = "<b>{}</b>\n\n{}".format(html.escape(title), html.escape(link))
 
                 if len(final_message) <= constants.MAX_MESSAGE_LENGTH:
-                    bot.send_message(chat_id=tg_chat_id, text=final_message, parse_mode=ParseMode.HTML)
+                    await bot.send_message(chat_id=tg_chat_id, text=final_message, parse_mode=ParseMode.HTML)
                 else:
-                    bot.send_message(chat_id=tg_chat_id, text="<b>Warning:</b> The message is too long to be sent",
+                    await bot.send_message(chat_id=tg_chat_id, text="<b>Warning:</b> The message is too long to be sent",
                                      parse_mode=ParseMode.HTML)
 
-            bot.send_message(chat_id=tg_chat_id, parse_mode=ParseMode.HTML,
+            await bot.send_message(chat_id=tg_chat_id, parse_mode=ParseMode.HTML,
                              text="<b>Warning: </b>{} occurrences have been left out to prevent spam"
                              .format(len(new_entry_links) - 5))
 
@@ -233,9 +241,9 @@ job_rss_update = job.run_repeating(rss_update, interval=60, first=60)
 job_rss_set.enabled = True
 job_rss_update.enabled = True
 
-SHOW_URL_HANDLER = CommandHandler("rss", show_url, pass_args=True)
-ADD_URL_HANDLER = CommandHandler("addrss", add_url, pass_args=True)
-REMOVE_URL_HANDLER = CommandHandler("removerss", remove_url, pass_args=True)
+SHOW_URL_HANDLER = CommandHandler("rss", show_url)
+ADD_URL_HANDLER = CommandHandler("addrss", add_url)
+REMOVE_URL_HANDLER = CommandHandler("removerss", remove_url)
 LIST_URLS_HANDLER = CommandHandler("listrss", list_urls)
 
 dispatcher.add_handler(SHOW_URL_HANDLER)

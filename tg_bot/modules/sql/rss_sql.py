@@ -2,7 +2,7 @@ import threading
 
 from sqlalchemy import Column, UnicodeText, Integer
 
-from tg_bot.modules.sql import BASE, SESSION
+from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 
 class RSS(BASE):
@@ -23,7 +23,7 @@ class RSS(BASE):
                                                                                    self.old_entry_link)
 
 
-RSS.__table__.create(checkfirst=True)
+RSS.__table__.create(bind=ENGINE, checkfirst=True)
 INSERTION_LOCK = threading.RLock()
 
 

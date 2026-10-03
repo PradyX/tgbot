@@ -3,7 +3,7 @@ import threading
 from sqlalchemy import Column, Integer, UnicodeText, String, ForeignKey, UniqueConstraint, func
 
 from tg_bot import dispatcher
-from tg_bot.modules.sql import BASE, SESSION
+from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 
 class Users(BASE):
@@ -57,9 +57,9 @@ class ChatMembers(BASE):
                                                             self.chat.chat_name, self.chat.chat_id)
 
 
-Users.__table__.create(checkfirst=True)
-Chats.__table__.create(checkfirst=True)
-ChatMembers.__table__.create(checkfirst=True)
+Users.__table__.create(bind=ENGINE, checkfirst=True)
+Chats.__table__.create(bind=ENGINE, checkfirst=True)
+ChatMembers.__table__.create(bind=ENGINE, checkfirst=True)
 
 INSERTION_LOCK = threading.RLock()
 
@@ -167,9 +167,6 @@ def migrate_chat(old_chat_id, new_chat_id):
             SESSION.add(member)
 
         SESSION.commit()
-
-
-ensure_bot_in_db()
 
 
 def del_user(user_id):

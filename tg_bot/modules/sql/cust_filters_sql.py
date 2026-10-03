@@ -2,7 +2,7 @@ import threading
 
 from sqlalchemy import Column, String, UnicodeText, Boolean, Integer, distinct, func
 
-from tg_bot.modules.sql import BASE, SESSION
+from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 
 class CustomFilters(BASE):
@@ -47,8 +47,8 @@ class CustomFilters(BASE):
 class Buttons(BASE):
     __tablename__ = "cust_filter_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), primary_key=True)
-    keyword = Column(UnicodeText, primary_key=True)
+    chat_id = Column(String(14), nullable=False)
+    keyword = Column(UnicodeText, nullable=False)
     name = Column(UnicodeText, nullable=False)
     url = Column(UnicodeText, nullable=False)
     same_line = Column(Boolean, default=False)
@@ -61,8 +61,8 @@ class Buttons(BASE):
         self.same_line = same_line
 
 
-CustomFilters.__table__.create(checkfirst=True)
-Buttons.__table__.create(checkfirst=True)
+CustomFilters.__table__.create(bind=ENGINE, checkfirst=True)
+Buttons.__table__.create(bind=ENGINE, checkfirst=True)
 
 CUST_FILT_LOCK = threading.RLock()
 BUTTON_LOCK = threading.RLock()

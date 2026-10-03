@@ -4,7 +4,7 @@ import threading
 from sqlalchemy import Column, String, Boolean, UnicodeText, Integer, func, distinct
 
 from tg_bot.modules.helper_funcs.msg_types import Types
-from tg_bot.modules.sql import SESSION, BASE
+from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 
 class Notes(BASE):
@@ -31,8 +31,8 @@ class Notes(BASE):
 class Buttons(BASE):
     __tablename__ = "note_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), primary_key=True)
-    note_name = Column(UnicodeText, primary_key=True)
+    chat_id = Column(String(14), nullable=False)
+    note_name = Column(UnicodeText, nullable=False)
     name = Column(UnicodeText, nullable=False)
     url = Column(UnicodeText, nullable=False)
     same_line = Column(Boolean, default=False)
@@ -45,8 +45,8 @@ class Buttons(BASE):
         self.same_line = same_line
 
 
-Notes.__table__.create(checkfirst=True)
-Buttons.__table__.create(checkfirst=True)
+Notes.__table__.create(bind=ENGINE, checkfirst=True)
+Buttons.__table__.create(bind=ENGINE, checkfirst=True)
 
 NOTES_INSERTION_LOCK = threading.RLock()
 BUTTONS_INSERTION_LOCK = threading.RLock()

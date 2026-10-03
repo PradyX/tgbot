@@ -1,9 +1,8 @@
 import threading
 
-from sqlalchemy import Integer, Column, String, UnicodeText, func, distinct, Boolean
-from sqlalchemy.dialects import postgresql
+from sqlalchemy import Integer, Column, String, UnicodeText, func, distinct, Boolean, JSON
 
-from tg_bot.modules.sql import SESSION, BASE
+from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 
 class Warns(BASE):
@@ -12,7 +11,8 @@ class Warns(BASE):
     user_id = Column(Integer, primary_key=True)
     chat_id = Column(String(14), primary_key=True)
     num_warns = Column(Integer, default=0)
-    reasons = Column(postgresql.ARRAY(UnicodeText))
+    # JSON list of warn reasons (portable across postgres/sqlite)
+    reasons = Column(JSON)
 
     def __init__(self, user_id, chat_id):
         self.user_id = user_id
@@ -59,9 +59,9 @@ class WarnSettings(BASE):
         return "<{} has {} possible warns.>".format(self.chat_id, self.warn_limit)
 
 
-Warns.__table__.create(checkfirst=True)
-WarnFilters.__table__.create(checkfirst=True)
-WarnSettings.__table__.create(checkfirst=True)
+Warns.__table__.create(bind=ENGINE, checkfirst=True)
+WarnFilters.__table__.create(bind=ENGINE, checkfirst=True)
+WarnSettings.__table__.create(bind=ENGINE, checkfirst=True)
 
 WARN_INSERTION_LOCK = threading.RLock()
 WARN_FILTER_INSERTION_LOCK = threading.RLock()

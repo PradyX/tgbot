@@ -3,7 +3,7 @@ import random
 from sqlalchemy import Column, String, Boolean, UnicodeText, Integer, BigInteger
 
 from tg_bot.modules.helper_funcs.msg_types import Types
-from tg_bot.modules.sql import SESSION, BASE
+from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 DEFAULT_WELCOME = 'Hey {first}, how are you?'
 DEFAULT_GOODBYE = 'Nice knowing ya!'
@@ -34,7 +34,7 @@ DEFAULT_WELCOME_MESSAGES = [
     "{first} just showed up. Hold my beer.",
     "Challenger approaching - {first} has appeared!",
     "It's a bird! It's a plane! Nevermind, it's just {first}.",
-    "It's {first}! Praise the sun! \o/",
+    "It's {first}! Praise the sun! \\o/",
     "Never gonna give {first} up. Never gonna let {first} down.",
     "Ha! {first} has joined! You activated my trap card!",
     "Cheers, love! {first}'s here!",
@@ -176,7 +176,7 @@ class Welcome(BASE):
 class WelcomeButtons(BASE):
     __tablename__ = "welcome_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(14), nullable=False)
     name = Column(UnicodeText, nullable=False)
     url = Column(UnicodeText, nullable=False)
     same_line = Column(Boolean, default=False)
@@ -191,7 +191,7 @@ class WelcomeButtons(BASE):
 class GoodbyeButtons(BASE):
     __tablename__ = "leave_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(14), primary_key=True)
+    chat_id = Column(String(14), nullable=False)
     name = Column(UnicodeText, nullable=False)
     url = Column(UnicodeText, nullable=False)
     same_line = Column(Boolean, default=False)
@@ -203,9 +203,9 @@ class GoodbyeButtons(BASE):
         self.same_line = same_line
 
 
-Welcome.__table__.create(checkfirst=True)
-WelcomeButtons.__table__.create(checkfirst=True)
-GoodbyeButtons.__table__.create(checkfirst=True)
+Welcome.__table__.create(bind=ENGINE, checkfirst=True)
+WelcomeButtons.__table__.create(bind=ENGINE, checkfirst=True)
+GoodbyeButtons.__table__.create(bind=ENGINE, checkfirst=True)
 
 INSERTION_LOCK = threading.RLock()
 WELC_BTN_LOCK = threading.RLock()

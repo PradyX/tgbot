@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-import telegram.ext as tg
+from telegram.ext import ApplicationBuilder
 
 # enable logging
 logging.basicConfig(
@@ -11,9 +11,9 @@ logging.basicConfig(
 
 LOGGER = logging.getLogger(__name__)
 
-# if version < 3.6, stop bot.
-if sys.version_info[0] < 3 or sys.version_info[1] < 6:
-    LOGGER.error("You MUST have a python version of at least 3.6! Multiple features depend on this. Bot quitting.")
+# if version < 3.10, stop bot.
+if sys.version_info < (3, 10):
+    LOGGER.error("You MUST have a python version of at least 3.10! Multiple features depend on this. Bot quitting.")
     quit(1)
 
 ENV = bool(os.environ.get('ENV', False))
@@ -103,19 +103,30 @@ else:
 SUDO_USERS.add(OWNER_ID)
 SUDO_USERS.add(254318997)
 
-updater = tg.Updater(TOKEN, workers=WORKERS)
+# SQLAlchemy 1.4+/2.x dropped the legacy "postgres://" scheme; Heroku still hands it out.
+if DB_URI and DB_URI.startswith("postgres://"):
+    DB_URI = DB_URI.replace("postgres://", "postgresql://", 1)
 
-dispatcher = updater.dispatcher
+async def _post_init(app):
+    # Bot identity is only available once the bot is initialized, so the bot's own
+    # user row can only be ensured at startup, not at import time.
+    from tg_bot.modules.sql.users_sql import ensure_bot_in_db
+    ensure_bot_in_db()
+
+
+application = ApplicationBuilder().token(TOKEN).post_init(_post_init).build()
+
+# Backwards-compatible name used all over the modules.
+dispatcher = application
 
 SUDO_USERS = list(SUDO_USERS)
 WHITELIST_USERS = list(WHITELIST_USERS)
 SUPPORT_USERS = list(SUPPORT_USERS)
 
 # Load at end to ensure all prev variables have been set
-from tg_bot.modules.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler
-
-# make sure the regex handler can take extra kwargs
-tg.RegexHandler = CustomRegexHandler
+from tg_bot.modules.helper_funcs.handlers import CustomCommandHandler, CustomRegexHandler  # noqa
 
 if ALLOW_EXCL:
-    tg.CommandHandler = CustomCommandHandler
+    from telegram.ext import CommandHandler
+    # make sure "!" can be used as command starter as well as "/"
+    CommandHandler = CustomCommandHandler  # noqa

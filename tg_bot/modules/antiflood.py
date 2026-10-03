@@ -3,8 +3,8 @@ from typing import Optional, List
 
 from telegram import Message, Chat, Update, Bot, User
 from telegram.error import BadRequest
-from telegram.ext import Filters, MessageHandler, CommandHandler, run_async
-from telegram.utils.helpers import mention_html
+from telegram.ext import filters, MessageHandler, CommandHandler
+from telegram.helpers import mention_html
 
 from tg_bot import dispatcher
 from tg_bot.modules.helper_funcs.chat_status import is_user_admin, user_admin, can_restrict
@@ -14,9 +14,9 @@ from tg_bot.modules.sql import antiflood_sql as sql
 FLOOD_GROUP = 3
 
 
-@run_async
 @loggable
-def check_flood(bot: Bot, update: Update) -> str:
+async def check_flood(update, context) -> str:
+    bot = context.bot
     user = update.effective_user  # type: Optional[User]
     chat = update.effective_chat  # type: Optional[Chat]
     msg = update.effective_message  # type: Optional[Message]
@@ -25,7 +25,7 @@ def check_flood(bot: Bot, update: Update) -> str:
         return ""
 
     # ignore admins
-    if is_user_admin(chat, user.id):
+    if await is_user_admin(chat, user.id):
         sql.update_flood(chat.id, None)
         return ""
 
@@ -34,8 +34,8 @@ def check_flood(bot: Bot, update: Update) -> str:
         return ""
 
     try:
-        chat.kick_member(user.id)
-        msg.reply_text("I like to leave the flooding to natural disasters. But you, you were just a "
+        await chat.ban_member(user.id)
+        await msg.reply_text("I like to leave the flooding to natural disasters. But you, you were just a "
                        "disappointment. Get out.")
 
         return "<b>{}:</b>" \
@@ -45,18 +45,19 @@ def check_flood(bot: Bot, update: Update) -> str:
                                              mention_html(user.id, user.first_name))
 
     except BadRequest:
-        msg.reply_text("I can't kick people here, give me permissions first! Until then, I'll disable antiflood.")
+        await msg.reply_text("I can't kick people here, give me permissions first! Until then, I'll disable antiflood.")
         sql.set_flood(chat.id, 0)
         return "<b>{}:</b>" \
                "\n#INFO" \
                "\nDon't have kick permissions, so automatically disabled antiflood.".format(chat.title)
 
 
-@run_async
 @user_admin
 @can_restrict
 @loggable
-def set_flood(bot: Bot, update: Update, args: List[str]) -> str:
+async def set_flood(update, context) -> str:
+    bot = context.bot
+    args = context.args
     chat = update.effective_chat  # type: Optional[Chat]
     user = update.effective_user  # type: Optional[User]
     message = update.effective_message  # type: Optional[Message]
@@ -65,25 +66,25 @@ def set_flood(bot: Bot, update: Update, args: List[str]) -> str:
         val = args[0].lower()
         if val == "off" or val == "no" or val == "0":
             sql.set_flood(chat.id, 0)
-            message.reply_text("Antiflood has been disabled.")
+            await message.reply_text("Antiflood has been disabled.")
 
         elif val.isdigit():
             amount = int(val)
             if amount <= 0:
                 sql.set_flood(chat.id, 0)
-                message.reply_text("Antiflood has been disabled.")
+                await message.reply_text("Antiflood has been disabled.")
                 return "<b>{}:</b>" \
                        "\n#SETFLOOD" \
                        "\n<b>Admin:</b> {}" \
                        "\nDisabled antiflood.".format(html.escape(chat.title), mention_html(user.id, user.first_name))
 
             elif amount < 3:
-                message.reply_text("Antiflood has to be either 0 (disabled), or a number bigger than 3!")
+                await message.reply_text("Antiflood has to be either 0 (disabled), or a number bigger than 3!")
                 return ""
 
             else:
                 sql.set_flood(chat.id, amount)
-                message.reply_text("Antiflood has been updated and set to {}".format(amount))
+                await message.reply_text("Antiflood has been updated and set to {}".format(amount))
                 return "<b>{}:</b>" \
                        "\n#SETFLOOD" \
                        "\n<b>Admin:</b> {}" \
@@ -91,20 +92,20 @@ def set_flood(bot: Bot, update: Update, args: List[str]) -> str:
                                                                     mention_html(user.id, user.first_name), amount)
 
         else:
-            message.reply_text("Unrecognised argument - please use a number, 'off', or 'no'.")
+            await message.reply_text("Unrecognised argument - please use a number, 'off', or 'no'.")
 
     return ""
 
 
-@run_async
-def flood(bot: Bot, update: Update):
+async def flood(update, context):
+    bot = context.bot
     chat = update.effective_chat  # type: Optional[Chat]
 
     limit = sql.get_flood_limit(chat.id)
     if limit == 0:
-        update.effective_message.reply_text("I'm not currently enforcing flood control!")
+        await update.effective_message.reply_text("I'm not currently enforcing flood control!")
     else:
-        update.effective_message.reply_text(
+        await update.effective_message.reply_text(
             "I'm currently banning users if they send more than {} consecutive messages.".format(limit))
 
 
@@ -129,9 +130,9 @@ __help__ = """
 
 __mod_name__ = "AntiFlood"
 
-FLOOD_BAN_HANDLER = MessageHandler(Filters.all & ~Filters.status_update & Filters.group, check_flood)
-SET_FLOOD_HANDLER = CommandHandler("setflood", set_flood, pass_args=True, filters=Filters.group)
-FLOOD_HANDLER = CommandHandler("flood", flood, filters=Filters.group)
+FLOOD_BAN_HANDLER = MessageHandler(filters.ALL & ~filters.StatusUpdate.ALL & filters.ChatType.GROUPS, check_flood)
+SET_FLOOD_HANDLER = CommandHandler("setflood", set_flood, filters=filters.ChatType.GROUPS)
+FLOOD_HANDLER = CommandHandler("flood", flood, filters=filters.ChatType.GROUPS)
 
 dispatcher.add_handler(FLOOD_BAN_HANDLER, FLOOD_GROUP)
 dispatcher.add_handler(SET_FLOOD_HANDLER)

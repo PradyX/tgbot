@@ -12,7 +12,8 @@ API_KEY = "6ae0c3a0-afdc-4532-a810-82ded0054236"
 URL = "http://services.gingersoftware.com/Ginger/correct/json/GingerTheText"
 
 
-def translate(bot: Bot, update: Update):
+async def translate(update, context):
+    bot = context.bot
     if update.effective_message.reply_to_message:
         msg = update.effective_message.reply_to_message
 
@@ -44,7 +45,7 @@ def translate(bot: Bot, update: Update):
 
         curr_string += msg.text[prev_end:]
         print(curr_string)
-        update.effective_message.reply_text(curr_string)
+        await update.effective_message.reply_text(curr_string)
 
 
 __help__ = """

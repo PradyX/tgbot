@@ -1,5 +1,5 @@
 import random
-from telegram.ext import run_async, Filters
+from telegram.ext import filters
 from telegram import Message, Chat, Update, Bot, MessageEntity
 from tg_bot import dispatcher
 from tg_bot.modules.disable import CommandHandler
@@ -48,7 +48,7 @@ reactions = ["( ͡° ͜ʖ ͡°)",
 "(°(°ω(°ω°(☆ω☆)°ω°)ω°)°)",
 "(っ˘▽˘)(˘▽˘)˘▽˘ς)",
 "(*＾ω＾)人(＾ω＾*)",
-"＼(▽￣ \ (￣▽￣) / ￣▽)／",
+"＼(▽￣ \\ (￣▽￣) / ￣▽)／",
 "(￣Θ￣)",
 "＼( ˋ Θ ´ )／",
 "( ´(00)ˋ )",
@@ -207,14 +207,14 @@ reactions = ["( ͡° ͜ʖ ͡°)",
 "╰( ͡° ͜ʖ ͡° )つ──☆*:・ﾟ",
 "(∩ᄑ_ᄑ)⊃━☆ﾟ*･｡*･:≡( ε:)"]
 
-@run_async
-def react(bot: Bot, update: Update):
+async def react(update, context):
+    bot = context.bot
     message = update.effective_message
     react = random.choice(reactions)
     if message.reply_to_message:
-      message.reply_to_message.reply_text(react)
+      await message.reply_to_message.reply_text(react)
     else:
-      message.reply_text(react)
+      await message.reply_text(react)
 
 REACT_HANDLER = CommandHandler("react", react)
 

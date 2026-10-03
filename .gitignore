@@ -1,5 +1,7 @@
 tg_bot/config.py
 *.pyc
+__pycache__/
+.venv/
 .idea/
 .project
 .pydevproject

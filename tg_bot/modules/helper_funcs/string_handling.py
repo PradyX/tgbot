@@ -4,7 +4,7 @@ from typing import Dict, List
 
 import emoji
 from telegram import MessageEntity
-from telegram.utils.helpers import escape_markdown
+from telegram.helpers import escape_markdown
 
 # NOTE: the url \ escape may cause double escapes
 # match * (bold) (don't escape if in url)
@@ -41,13 +41,13 @@ def _selective_escape(to_parse: str) -> str:
 
 # This is a fun one.
 def _calc_emoji_offset(to_calc) -> int:
-    # Get all emoji in text.
-    emoticons = emoji.get_emoji_regexp().finditer(to_calc)
+    # Get all emoji in text (emoji 2.x API - get_emoji_regexp was removed).
+    emoticons = emoji.emoji_list(to_calc)
     # Check the utf16 length of the emoji to determine the offset it caused.
     # Normal, 1 character emoji don't affect; hence sub 1.
     # special, eg with two emoji characters (eg face, and skin col) will have length 2, so by subbing one we
     # know we'll get one extra offset,
-    return sum(len(e.group(0).encode('utf-16-le')) // 2 - 1 for e in emoticons)
+    return sum(len(e['emoji'].encode('utf-16-le')) // 2 - 1 for e in emoticons)
 
 
 def markdown_parser(txt: str, entities: Dict[MessageEntity, str] = None, offset: int = 0) -> str:
@@ -235,12 +235,12 @@ def escape_chars(text: str, to_escape: List[str]) -> str:
     return new_text
 
 
-def extract_time(message, time_val):
+async def extract_time(message, time_val):
     if any(time_val.endswith(unit) for unit in ('m', 'h', 'd')):
         unit = time_val[-1]
         time_num = time_val[:-1]  # type: str
         if not time_num.isdigit():
-            message.reply_text("Invalid time amount specified.")
+            await message.reply_text("Invalid time amount specified.")
             return ""
 
         if unit == 'm':
@@ -254,5 +254,5 @@ def extract_time(message, time_val):
             return ""
         return bantime
     else:
-        message.reply_text("Invalid time type specified. Expected m,h, or d, got: {}".format(time_val[-1]))
+        await message.reply_text("Invalid time type specified. Expected m,h, or d, got: {}".format(time_val[-1]))
         return ""
