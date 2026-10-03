@@ -187,6 +187,14 @@ async def error_callback(update: object, context):
         LOGGER.warning("ChatMigrated: %s", err)
     except TelegramError:
         LOGGER.warning("TelegramError: %s", error)
+    finally:
+        # A failed DB flush can leave the shared scoped session needing a rollback, which would
+        # then break every later handler (PendingRollbackError). Reset it after any handler error.
+        try:
+            from tg_bot.modules.sql import SESSION
+            SESSION.rollback()
+        except Exception as excp:
+            LOGGER.error("Could not reset the DB session after an error: %s", excp)
 
 
 async def help_button(update: Update, context):

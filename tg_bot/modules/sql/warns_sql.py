@@ -1,6 +1,6 @@
 import threading
 
-from sqlalchemy import Integer, Column, String, UnicodeText, func, distinct, Boolean, JSON
+from sqlalchemy import Integer, BigInteger, Column, String, UnicodeText, func, distinct, Boolean, JSON
 
 from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
@@ -8,7 +8,7 @@ from tg_bot.modules.sql import BASE, SESSION, ENGINE
 class Warns(BASE):
     __tablename__ = "warns"
 
-    user_id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, primary_key=True)
     chat_id = Column(String(14), primary_key=True)
     num_warns = Column(Integer, default=0)
     # JSON list of warn reasons (portable across postgres/sqlite)

@@ -1,6 +1,6 @@
 import threading
 
-from sqlalchemy import Column, Integer, UnicodeText, String, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Column, BigInteger, Integer, UnicodeText, String, ForeignKey, UniqueConstraint, func
 
 from tg_bot import dispatcher
 from tg_bot.modules.sql import BASE, SESSION, ENGINE
@@ -8,7 +8,7 @@ from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
 class Users(BASE):
     __tablename__ = "users"
-    user_id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, primary_key=True)
     username = Column(UnicodeText)
 
     def __init__(self, user_id, username=None):
@@ -41,7 +41,7 @@ class ChatMembers(BASE):
                              onupdate="CASCADE",
                              ondelete="CASCADE"),
                   nullable=False)
-    user = Column(Integer,
+    user = Column(BigInteger,
                   ForeignKey("users.user_id",
                              onupdate="CASCADE",
                              ondelete="CASCADE"),
@@ -73,34 +73,41 @@ def ensure_bot_in_db():
 
 def update_user(user_id, username, chat_id=None, chat_name=None):
     with INSERTION_LOCK:
-        user = SESSION.query(Users).get(user_id)
-        if not user:
-            user = Users(user_id, username)
-            SESSION.add(user)
-            SESSION.flush()
-        else:
-            user.username = username
+        try:
+            user = SESSION.query(Users).get(user_id)
+            if not user:
+                user = Users(user_id, username)
+                SESSION.add(user)
+                SESSION.flush()
+            else:
+                user.username = username
 
-        if not chat_id or not chat_name:
+            if not chat_id or not chat_name:
+                SESSION.commit()
+                return
+
+            chat = SESSION.query(Chats).get(str(chat_id))
+            if not chat:
+                chat = Chats(str(chat_id), chat_name)
+                SESSION.add(chat)
+                SESSION.flush()
+
+            else:
+                chat.chat_name = chat_name
+
+            member = SESSION.query(ChatMembers).filter(ChatMembers.chat == chat.chat_id,
+                                                       ChatMembers.user == user.user_id).first()
+            if not member:
+                chat_member = ChatMembers(chat.chat_id, user.user_id)
+                SESSION.add(chat_member)
+
             SESSION.commit()
-            return
-
-        chat = SESSION.query(Chats).get(str(chat_id))
-        if not chat:
-            chat = Chats(str(chat_id), chat_name)
-            SESSION.add(chat)
-            SESSION.flush()
-
-        else:
-            chat.chat_name = chat_name
-
-        member = SESSION.query(ChatMembers).filter(ChatMembers.chat == chat.chat_id,
-                                                   ChatMembers.user == user.user_id).first()
-        if not member:
-            chat_member = ChatMembers(chat.chat_id, user.user_id)
-            SESSION.add(chat_member)
-
-        SESSION.commit()
+        except Exception:
+            # A failed flush leaves the shared scoped session in "needs rollback" state, which
+            # would then break every later handler (PendingRollbackError). Roll back so the
+            # session stays usable, then let the caller's error handler see the real exception.
+            SESSION.rollback()
+            raise
 
 
 def get_userid_by_name(username):

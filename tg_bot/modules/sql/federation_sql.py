@@ -1,7 +1,7 @@
 import threading
 import uuid
 
-from sqlalchemy import Column, String, UnicodeText, Integer, func, distinct
+from sqlalchemy import Column, String, UnicodeText, BigInteger, func, distinct
 
 from tg_bot.modules.sql import BASE, SESSION, ENGINE
 
@@ -9,7 +9,7 @@ from tg_bot.modules.sql import BASE, SESSION, ENGINE
 class Federations(BASE):
     __tablename__ = "federations"
     fed_id = Column(String(36), primary_key=True)
-    owner_id = Column(Integer, nullable=False)
+    owner_id = Column(BigInteger, nullable=False)
     fed_name = Column(UnicodeText, nullable=False)
 
     def __init__(self, owner_id, fed_name):
@@ -34,7 +34,7 @@ class FedChats(BASE):
 class FedAdmins(BASE):
     __tablename__ = "fed_admins"
     fed_id = Column(String(36), primary_key=True)
-    user_id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, primary_key=True)
 
     def __init__(self, fed_id, user_id):
         self.fed_id = fed_id
@@ -44,9 +44,9 @@ class FedAdmins(BASE):
 class FedBans(BASE):
     __tablename__ = "fed_bans"
     fed_id = Column(String(36), primary_key=True)
-    user_id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, primary_key=True)
     reason = Column(UnicodeText)
-    banned_by = Column(Integer)
+    banned_by = Column(BigInteger)
 
     def __init__(self, fed_id, user_id, reason=None, banned_by=None):
         self.fed_id = fed_id
