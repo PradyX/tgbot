@@ -35,6 +35,19 @@ RSS feeds, sed, backups/restore.
 
 ## Setup guide
 
+### Quick install (Linux server)
+
+An interactive installer does everything below — dependencies, venv, database, configuration, and an optional
+systemd service — while asking for your bot token and settings:
+
+```bash
+git clone https://github.com/PradyX/tgbot.git
+cd tgbot
+./scripts/setup_linux.sh
+```
+
+Use `./scripts/setup_linux.sh --dry-run` to preview the steps without changing anything. Manual setup below.
+
 ### 1. Prerequisites
 
 - **Python 3.10 or newer** (3.10–3.14 all work; the bot is developed and tested on 3.14).
