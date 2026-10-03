@@ -43,7 +43,9 @@ ENV=1 TOKEN="123456:TESTTOKEN" OWNER_ID=1 OWNER_USERNAME=test SUDO_USERS="1" \
    `ban_member` + `unban_member`.
 7. Parse modes: `mention_html`/HTML tags → `ParseMode.HTML`; `_italic_`/`*bold*` → `ParseMode.MARKDOWN`.
 8. SQL: portable column types only (no postgres `ARRAY`); `.__table__.create(bind=ENGINE, checkfirst=True)`;
-   follow the in-memory-cache pattern of existing `*_sql.py` files.
+   follow the in-memory-cache pattern of existing `*_sql.py` files. DB URIs are normalized in `tg_bot/__init__.py`:
+   bare `postgres://`/`postgresql://` become `postgresql+psycopg2://` — SQLAlchemy 2.1+ resolves a bare
+   `postgresql://` to psycopg3 (`import psycopg`), which this project does not install.
 9. Decorator order on handlers: `@bot_admin`/`@user_admin`/... outermost, `@loggable` innermost; `@loggable`
    handlers return an HTML log string (or `""`).
 10. Keep the update rate limiter (`TypeHandler` at group -100 in `__main__.py`) working.

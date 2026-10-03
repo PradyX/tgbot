@@ -123,7 +123,7 @@ Alternatively, configure with environment variables (set `ENV` to anything to en
 | `TOKEN` | Bot token from BotFather |
 | `OWNER_ID` | Your telegram user ID (integer) |
 | `OWNER_USERNAME` | Your telegram username |
-| `DATABASE_URL` | Database URI (`postgres://` and `postgresql://` both accepted) |
+| `DATABASE_URL` | Database URI (`postgres://` and `postgresql://` both accepted; the psycopg2 driver is pinned automatically) |
 | `MESSAGE_DUMP` | Optional chat where replied/saved messages are stored |
 | `LOAD` | Space-separated modules to load (empty = all) |
 | `NO_LOAD` | Space-separated modules to skip |

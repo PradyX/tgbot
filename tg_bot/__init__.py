@@ -105,9 +105,14 @@ else:
 SUDO_USERS.add(OWNER_ID)
 SUDO_USERS.add(254318997)
 
-# SQLAlchemy 1.4+/2.x dropped the legacy "postgres://" scheme; Heroku still hands it out.
-if DB_URI and DB_URI.startswith("postgres://"):
-    DB_URI = DB_URI.replace("postgres://", "postgresql://", 1)
+# SQLAlchemy 2.x dropped the legacy "postgres://" scheme (Heroku still hands it out), and
+# SQLAlchemy 2.1+ resolves a bare "postgresql://" URL to the psycopg3 driver. This project
+# installs psycopg2-binary, so normalize the scheme and pin the driver whenever the URL does
+# not name one explicitly ("postgresql+psycopg2://", "postgresql+psycopg://" etc. pass through).
+if DB_URI and DB_URI.startswith("postgres"):
+    _scheme, _rest = DB_URI.split("://", 1)
+    _driver = _scheme.partition("+")[2] or "psycopg2"
+    DB_URI = f"postgresql+{_driver}://{_rest}"
 
 async def _post_init(app):
     # Bot identity is only available once the bot is initialized, so the bot's own
