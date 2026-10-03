@@ -28,6 +28,19 @@ class Notes(BASE):
         return "<Note %s>" % self.name
 
 
+class NotePrivacy(BASE):
+    __tablename__ = "notes_privacy"
+    chat_id = Column(String(50), primary_key=True)
+    private = Column(Boolean, default=False)
+
+    def __init__(self, chat_id, private):
+        self.chat_id = str(chat_id)  # ensure string
+        self.private = bool(private)
+
+    def __repr__(self):
+        return "<notes privacy for %s>" % self.chat_id
+
+
 class Buttons(BASE):
     __tablename__ = "note_urls"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -46,10 +59,14 @@ class Buttons(BASE):
 
 
 Notes.__table__.create(bind=ENGINE, checkfirst=True)
+NotePrivacy.__table__.create(bind=ENGINE, checkfirst=True)
 Buttons.__table__.create(bind=ENGINE, checkfirst=True)
 
 NOTES_INSERTION_LOCK = threading.RLock()
 BUTTONS_INSERTION_LOCK = threading.RLock()
+PRIVACY_INSERTION_LOCK = threading.RLock()
+
+CHAT_PRIVACY = {}  # chat_id -> bool
 
 
 def add_note_to_db(chat_id, note_name, note_data, msgtype, buttons=None, file=None):
@@ -121,6 +138,21 @@ def get_buttons(chat_id, note_name):
         SESSION.close()
 
 
+def get_priv_notes(chat_id):
+    return CHAT_PRIVACY.get(str(chat_id), False)
+
+
+def set_priv_notes(chat_id, private):
+    with PRIVACY_INSERTION_LOCK:
+        privacy = SESSION.query(NotePrivacy).get(str(chat_id))
+        if not privacy:
+            privacy = NotePrivacy(str(chat_id), private)
+        privacy.private = bool(private)
+        CHAT_PRIVACY[str(chat_id)] = bool(private)
+        SESSION.add(privacy)
+        SESSION.commit()
+
+
 def num_notes():
     try:
         return SESSION.query(Notes).count()
@@ -146,4 +178,21 @@ def migrate_chat(old_chat_id, new_chat_id):
             for btn in chat_buttons:
                 btn.chat_id = str(new_chat_id)
 
+        privacy = SESSION.query(NotePrivacy).get(str(old_chat_id))
+        if privacy:
+            CHAT_PRIVACY[str(new_chat_id)] = CHAT_PRIVACY.pop(str(old_chat_id), False)
+            privacy.chat_id = str(new_chat_id)
+
         SESSION.commit()
+
+
+def __load_privacy_settings():
+    global CHAT_PRIVACY
+    try:
+        CHAT_PRIVACY = {row.chat_id: bool(row.private)
+                        for row in SESSION.query(NotePrivacy).all()}
+    finally:
+        SESSION.close()
+
+
+__load_privacy_settings()

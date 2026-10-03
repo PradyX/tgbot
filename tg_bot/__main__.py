@@ -149,13 +149,16 @@ async def send_help(chat_id, text, keyboard=None):
                                       reply_markup=keyboard)
 
 
-@restricted
 async def start(update: Update, context):
     if update.effective_chat.type == "private":
         args = context.args
         if len(args) >= 1:
             if args[0].lower() == "help":
                 await send_help(update.effective_chat.id, _help_strings())
+
+            elif args[0].lower().startswith("note_") and "notes" in IMPORTED:
+                # private-notes deep link: deliver the note in PM
+                await IMPORTED["notes"].send_private_note(update, context.bot, args[0])
 
             elif args[0].lower().startswith("stngs_"):
                 match = re.match("stngs_(.*)", args[0].lower())
